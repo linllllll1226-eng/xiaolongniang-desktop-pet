@@ -1,0 +1,75 @@
+{
+  "ok": true,
+  "version": "10.9",
+  "verified_date": "2026-10-25",
+  "timezone": "Asia/Shanghai",
+  "clean_build": true,
+  "runtime_binary_sha256": "7e9afd4d3e99a6a3d740cc4eb85e8d41e8cb22ba9f86bb4d92c6ffa938e4d0ea",
+  "rebuild": {
+    "ok": true,
+    "release_sha256": "7e9afd4d3e99a6a3d740cc4eb85e8d41e8cb22ba9f86bb4d92c6ffa938e4d0ea",
+    "rebuild_sha256": "a73cc81ddbfe68656cd39ee6822b36550e341468f1e17426775386ea2ca74b32",
+    "identical_method_bodies": true,
+    "method_body_count": 423,
+    "identical_resources": true,
+    "resource_count": 55,
+    "scope": "Method IL and embedded assets; PE timestamps, MVID, icon and compiler provenance are outside this equality check"
+  },
+  "native_suites": [
+    {
+      "suite": "Moving",
+      "report": "moving-transition-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Library",
+      "report": "reading-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Switch",
+      "report": "smooth-switch-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Menu",
+      "report": "menu-link-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Indicator",
+      "report": "indicator-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Transition",
+      "report": "transition-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Blink",
+      "report": "blink-review.json",
+      "ok": true
+    },
+    {
+      "suite": "Flight",
+      "report": "flight-review.json",
+      "ok": true
+    }
+  ],
+  "native_switch_stages": 113,
+  "bridge_fixture_cases": 11,
+  "native_scope": "Isolated hidden WPF windows; no saved preferences, real pointer gestures, paid generation or installed app changes",
+  "bridge_scope": "Bounded synthetic payloads through actual executable; no real lifecycle callback claimed",
+  "runtime_zip_crc": "passed",
+  "source_text_scan": "passed",
+  "compiler_warning_codes": [
+    "CS0649",
+    "CS0169"
+  ],
+  "limitations": [
+    "PE timestamps, MVID, icon and compiler provenance are outside method/resource equality",
+    "Hidden WPF and synthetic bridge tests do not certify physical monitor frame rate or live native hooks",
+    "No code license selected; character-media redistribution authorization not confirmed"
+  ]
+}

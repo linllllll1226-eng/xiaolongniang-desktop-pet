@@ -1,0 +1,23 @@
+/assets/
+/outputs/
+/work/
+__pycache__/
+*.pyc
+*.exe
+*.zip
+*.wdp
+*.npz
+.venv/
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.pdb
+*.key
+*.pem
+白龙娘设置.json*
+联动状态/
+Cookies
+Cookies-journal
+Local State
