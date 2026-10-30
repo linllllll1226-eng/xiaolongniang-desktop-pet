@@ -17,8 +17,8 @@ using Forms=System.Windows.Forms;
 
 [assembly: AssemblyTitle("GPT白龙娘互动桌宠")]
 #if CLICK_BOUNCE
-[assembly: AssemblyVersion("10.15.1.0")]
-[assembly: AssemblyFileVersion("10.15.1.0")]
+[assembly: AssemblyVersion("10.15.2.0")]
+[assembly: AssemblyFileVersion("10.15.2.0")]
 #elif SMALL_TALK
 [assembly: AssemblyVersion("10.13.0.0")]
 [assembly: AssemblyFileVersion("10.13.0.0")]
@@ -97,7 +97,7 @@ public sealed partial class PetWindow:Window {
         if(key==connectionAuditKey&&!finished)return;connectionAuditKey=key;
         if(connectionAuditEvents.Count<128)connectionAuditEvents.Add(new Dictionary<string,object>{{"utc",DateTime.UtcNow.ToString("o")},{"status",bridgeStatus},{"source",bridgeSource},{"row",behavior.Animation},{"playback_id",behavior.PlaybackId},{"single",behavior.SingleAction}});
         connectionAuditFinished=finished;
-        File.WriteAllText(connectionAuditPath,new JavaScriptSerializer().Serialize(new Dictionary<string,object>{{"version","10.15.1"},{"finished",finished},{"scope","Actual running desktop phase and playback identifiers; no chat content or tool inputs"},{"events",connectionAuditEvents}}));
+        File.WriteAllText(connectionAuditPath,new JavaScriptSerializer().Serialize(new Dictionary<string,object>{{"version","10.15.2"},{"finished",finished},{"scope","Actual running desktop phase and playback identifiers; no chat content or tool inputs"},{"events",connectionAuditEvents}}));
     }
 #endif
     long bridgeNextRead,bridgeSnooze;
@@ -152,7 +152,7 @@ public sealed partial class PetWindow:Window {
 #if WINDOW_PERCH
 #if SMALL_TALK
 #if CLICK_BOUNCE
-        Title="小龙娘 · 全量合并 v10.15.1";
+        Title="小龙娘 · 全量合并 v10.15.2";
 #else
         Title="小龙娘 · 轻语气泡 v10.13";
 #endif
@@ -469,7 +469,9 @@ public sealed partial class PetWindow:Window {
             if(preferences.LinkCodex)state=PetBridge.RetainEventLease(state,lastCodexState,utc);
             lastCodexState=state;
             PetStatus legacyState=null;
+#if !TABLET_PHASES
             if(preferences.LinkCodex&&!testing){string installed=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","GPTWhiteDragon");lastCodexState=PetBridge.ResolveSources(lastCodexState,PetBridge.Read(Path.Combine(installed,"联动状态-持续动作"),utc,"codex"),null);legacyState=PetBridge.Read(Path.Combine(installed,"联动状态"),utc,"codex");}
+#endif
             lastCodexState=PetBridge.ResolveSources(lastCodexState,legacyState,null);
             state=PetBridge.ResolveSources(lastCodexState,null,preferences.LinkChatGPT?clientLink.State(utc):null);
 #endif

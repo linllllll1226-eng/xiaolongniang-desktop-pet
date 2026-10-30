@@ -1,6 +1,6 @@
 ﻿param(
- [string]$Target='outputs\小龙娘_v10.15.1_气泡微调版\启动小龙娘.exe',
- [string]$OutputDirectory='work\bubble-polish-20261030\extended',
+ [string]$Target='outputs\小龙娘_v10.15.2_空闲联动修正版\启动小龙娘.exe',
+ [string]$OutputDirectory='work\idle-link-fix-20261030\extended',
  [switch]$SkipCore,
  [string]$BookBaseline='outputs\小龙娘_v10.14.6_播放收尾版\启动小龙娘.exe',
  [string]$TabletBaseline='outputs\小龙娘_平板三段候选_20261029\启动小龙娘.exe',

@@ -1,129 +1,55 @@
 {
-  "ok": true,
-  "version": "10.15.1",
-  "verified_date": "2026-10-30",
-  "binary_sha256": "53efc725406a349b51d61b868fda3097148683e26aeff81a84d83c6e50cb96e9",
-  "rebuild": {
-    "ok": true,
-    "release_sha256": "53efc725406a349b51d61b868fda3097148683e26aeff81a84d83c6e50cb96e9",
-    "rebuild_sha256": "8e8116836170385f1ba4eed4bd74883a774797ea9dea729b7a13462018e50f83",
-    "identical_method_bodies": true,
-    "method_body_count": 691,
-    "identical_resources": true,
-    "resource_count": 65,
-    "scope": "Method IL and embedded assets; PE timestamps, MVID, icon and compiler provenance are outside this equality check"
-  },
-  "native_core_suites": [
-    {
-      "ok": true,
-      "report": "moving-transition-review.json",
-      "suite": "Moving"
-    },
-    {
-      "ok": true,
-      "report": "reading-review.json",
-      "suite": "Library"
-    },
-    {
-      "ok": true,
-      "report": "smooth-switch-review.json",
-      "suite": "Switch"
-    },
-    {
-      "ok": true,
-      "report": "menu-link-review.json",
-      "suite": "Menu"
-    },
-    {
-      "ok": true,
-      "report": "indicator-review.json",
-      "suite": "Indicator"
-    },
-    {
-      "ok": true,
-      "report": "transition-review.json",
-      "suite": "Transition"
-    },
-    {
-      "ok": true,
-      "report": "blink-review.json",
-      "suite": "Blink"
-    },
-    {
-      "ok": true,
-      "report": "flight-review.json",
-      "suite": "Flight"
-    }
-  ],
   "strict_switch_stages": 113,
-  "feature_suites": [
-    {
-      "report": "phase-review.json",
-      "suite": "TabletLogic",
-      "ok": true
-    },
-    {
-      "report": "logic-review.json",
-      "suite": "RelayLogic",
-      "ok": true
-    },
-    {
-      "report": "bridge-lease-review.json",
-      "suite": "BridgeLease",
-      "ok": true
-    },
-    {
-      "report": "native-tablet-phases.json",
-      "suite": "TabletNative",
-      "ok": true
-    },
-    {
-      "report": "focus-companion-review.json",
-      "suite": "Focus",
-      "ok": true
-    },
-    {
-      "report": "small-talk-review.json",
-      "suite": "SmallTalk",
-      "ok": true
-    }
-  ],
-  "historical_parent_version": "10.15.0",
-  "historical_parent_full_regression": "8 core and 19 feature suites; separate parent binary evidence, not borrowed as this version results",
-  "preserved_media": 65,
-  "new_generation_points": 0,
-  "visual_user_acceptance": "Gaze, fingertip contact and fine AI details retain disclosed limitations",
-  "native_command_hooks_verified": false,
+  "relay_logic_checks": 32,
   "local_session_event_adapter": true,
+  "scope": "Current exact binary: 8 core and 19 feature suites; parser cases are source-bound",
+  "binary_sha256": "2658a23a3d879086225506b7a488bb71db256b7816ec7d84a00a7be35c35eaf6",
+  "media_resources": 65,
+  "verified_date": "2026-10-30",
+  "new_generation_points": 0,
+  "feature_suites": [
+    "Unified",
+    "TabletLogic",
+    "RelayLogic",
+    "BridgeLease",
+    "TabletNative",
+    "Colour",
+    "Scene",
+    "BookSwitch",
+    "Pose",
+    "Click",
+    "Sampling",
+    "Equality",
+    "Visual",
+    "ReaderLive",
+    "Cadence",
+    "WindowPerch",
+    "DailyRoutine",
+    "Focus",
+    "SmallTalk"
+  ],
   "private_configuration_removed": true,
-  "installed_application_modified_by_publication": false,
-  "offline_preview": {
+  "version": "10.15.2",
+  "limits": "Hidden WPF and synthetic event fixtures are distinguished from live checks; unchanged AI visual-detail and frame-rate limits remain",
+  "bridge_payload_checks": 13,
+  "native_core_suites": [
+    "Moving",
+    "Library",
+    "Switch",
+    "Menu",
+    "Indicator",
+    "Transition",
+    "Blink",
+    "Flight"
+  ],
+  "ok": true,
+  "real_desktop_link": {
+    "idle_samples": 20,
+    "idle_row": 0,
     "ok": true,
-    "scope": "Local offline HTML, three processed clips decode and advance in actual Chromium; no monitor FPS claim",
-    "videos": [
-      {
-        "file": "WD10-29.webm",
-        "width": 640,
-        "height": 360,
-        "current_time": 0.1542,
-        "frames": 15
-      },
-      {
-        "file": "WD10-28.webm",
-        "width": 640,
-        "height": 360,
-        "current_time": 0.155,
-        "frames": 14
-      },
-      {
-        "file": "WD10-30.webm",
-        "width": 640,
-        "height": 360,
-        "current_time": 0.1742,
-        "frames": 4
-      }
-    ],
-    "image_loaded": true,
-    "remote_resources": []
-  }
+    "scope": "Real installed desktop and existing completed and active local chats; no synthetic session records; not native command Hooks acceptance",
+    "historical_completion_cues": 0,
+    "automatic_current_chat_verified": true
+  },
+  "native_command_hooks_verified": false
 }

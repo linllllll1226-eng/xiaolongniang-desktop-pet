@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop';$petProject=Split-Path -Parent $PSScriptRoot
 $petExe=if([IO.Path]::IsPathRooted($Executable)){[IO.Path]::GetFullPath($Executable)}else{[IO.Path]::GetFullPath((Join-Path $petProject $Executable))}
 $petFolder=[IO.Path]::GetFullPath((Join-Path $petProject $OutputDirectory));if(-not $petFolder.StartsWith($petProject+[IO.Path]::DirectorySeparatorChar)){throw 'Fixtures must stay inside project'}
 New-Item -ItemType Directory -Force -Path $petFolder|Out-Null
-$petCases=@(@('UserPromptSubmit','','thinking'),@('PreToolUse','Bash','working'),@('PostToolUse','Bash','thinking'),@('PreToolUse','functions.request_user_input','needs_input'),@('PostToolUse','functions.request_user_input','thinking'),@('PreToolUse','functions.request_user_input_async','needs_input'),@('PostToolUse','functions.request_user_input_async','needs_input'),@('PermissionRequest','Bash','needs_input'),@('Stop','','ready'),@('Interrupt','','idle'),@('SessionEnd','','idle'))
+$petCases=@(@('UserPromptSubmit','','thinking'),@('PreToolUse','Bash','executing'),@('PostToolUse','Bash',$null),@('PreToolUse','functions.exec_command','executing'),@('PostToolUse','functions.exec_command',$null),@('PreToolUse','functions.request_user_input','needs_input'),@('PostToolUse','functions.request_user_input','thinking'),@('PreToolUse','functions.request_user_input_async','needs_input'),@('PostToolUse','functions.request_user_input_async','needs_input'),@('PermissionRequest','Bash','needs_input'),@('Stop','','ready'),@('Interrupt','','idle'),@('SessionEnd','','idle'))
 $petResults=@();$petIndex=0
 foreach($petCase in $petCases){
  $petSession='audit-'+$petIndex;$petPayload=@{hook_event_name=$petCase[0];session_id=$petSession;tool_name=$petCase[1];transcript_path='must-not-open';tool_input=@{question='synthetic-do-not-persist'}}|ConvertTo-Json -Compress
@@ -12,7 +12,9 @@ foreach($petCase in $petCases){
  if(-not $petProcess.WaitForExit(4000)){$petProcess.Kill();throw 'Fixture bridge timed out'}
  $petReply=$petProcess.StandardOutput.ReadToEnd().Trim();if($petProcess.ExitCode -ne 0 -or $petReply -ne '{}'){throw 'Bridge fixture failed'}
  $petHasher=[Security.Cryptography.SHA256]::Create();try{$petHash=[BitConverter]::ToString($petHasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($petSession))).Replace('-','').ToLowerInvariant().Substring(0,24)}finally{$petHasher.Dispose()}
- $petText=[IO.File]::ReadAllText((Join-Path $petFolder ('session-'+$petHash+'.json')));$petState=$petText|ConvertFrom-Json
+ $petStateFile=Join-Path $petFolder ('session-'+$petHash+'.json')
+ if($null -eq $petCase[2]){if(Test-Path -LiteralPath $petStateFile){throw 'Tool return unexpectedly overwrote the continuous phase'};$petResults+=@{event=$petCase[0];tool=$petCase[1];status=$null};$petIndex++;continue}
+ $petText=[IO.File]::ReadAllText($petStateFile);$petState=$petText|ConvertFrom-Json
  if($petState.status -ne $petCase[2] -or $petState.source -ne 'codex' -or $petText.Contains('synthetic-do-not-persist')){throw 'Bridge mapping or payload persistence failed'}
  $petResults+=@{event=$petCase[0];tool=$petCase[1];status=$petState.status};$petIndex++
 }

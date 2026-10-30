@@ -1,6 +1,6 @@
 ﻿param(
- [string]$Target='outputs\小龙娘_v10.15.1_气泡微调版\启动小龙娘.exe',
- [string]$OutputDirectory='work\bubble-polish-20261030\core',
+ [string]$Target='outputs\小龙娘_v10.15.2_空闲联动修正版\启动小龙娘.exe',
+ [string]$OutputDirectory='work\idle-link-fix-20261030\core',
  [ValidateSet('All','Switch','Menu','Indicator','Transition','Blink','Flight','Library','Moving')][string]$Suite='All',
  [string]$Baseline='outputs\小龙娘_v10.14.6_播放收尾版\启动小龙娘.exe'
 )

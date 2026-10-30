@@ -15,8 +15,8 @@ $ErrorActionPreference='Stop'
 if($Unified -or -not($WindowPerch -or $DailyRoutine -or $FocusCompanion -or $SmallTalk -or $ClickBounce)){$ClickBounce=$true}
 if($ClickBounce){
     $Unified=$true
-    if(-not $PSBoundParameters.ContainsKey('OutputDirectory')){$OutputDirectory='outputs\小龙娘_v10.15.1_气泡微调版';$PSBoundParameters['OutputDirectory']=$OutputDirectory}
-    if(-not $PSBoundParameters.ContainsKey('AcceptanceDirectory')){$AcceptanceDirectory='work\bubble-polish-20261030\core';$PSBoundParameters['AcceptanceDirectory']=$AcceptanceDirectory}
+    if(-not $PSBoundParameters.ContainsKey('OutputDirectory')){$OutputDirectory='outputs\小龙娘_v10.15.2_空闲联动修正版';$PSBoundParameters['OutputDirectory']=$OutputDirectory}
+    if(-not $PSBoundParameters.ContainsKey('AcceptanceDirectory')){$AcceptanceDirectory='work\idle-link-fix-20261030\core';$PSBoundParameters['AcceptanceDirectory']=$AcceptanceDirectory}
     if(-not $PSBoundParameters.ContainsKey('AssetDirectory')){$AssetDirectory='work\release-assets-v1015';$PSBoundParameters['AssetDirectory']=$AssetDirectory}
 }
 if($ClickBounce){$SmallTalk=$true;if(-not $PSBoundParameters.ContainsKey('OutputDirectory')){$OutputDirectory='outputs\小龙娘_v10.14_连点Q弹版';$PSBoundParameters['OutputDirectory']=$OutputDirectory};if(-not $PSBoundParameters.ContainsKey('AcceptanceDirectory')){$AcceptanceDirectory='work\click-bounce-v1014\regression';$PSBoundParameters['AcceptanceDirectory']=$AcceptanceDirectory};if(-not $PSBoundParameters.ContainsKey('AssetDirectory')){$AssetDirectory='work\release-assets-v1014';$PSBoundParameters['AssetDirectory']=$AssetDirectory}}
@@ -89,7 +89,7 @@ if($Unified){
     & "$petFramework\csc.exe" /nologo /target:winexe /platform:x64 /optimize+ "/out:$petLink\启动当前会话联动.exe" "/win32icon:$petIcon" "/reference:$petFramework\System.Web.Extensions.dll" "/reference:$petFramework\System.Windows.Forms.dll" $petRelaySource
     if($LASTEXITCODE -ne 0){throw 'Current-chat adapter compilation failed'}
     if(-not $ChatSessionPath -and $env:CODEX_THREAD_ID){$petSessionRoot=Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex\sessions';$petSession=Get-ChildItem -LiteralPath $petSessionRoot -Recurse -File -Filter ('*-'+$env:CODEX_THREAD_ID+'.jsonl')|Select-Object -First 1;if($petSession){$ChatSessionPath=$petSession.FullName}}
-    @{project_path=$petProject;session_path=$ChatSessionPath;scope='Only the configured chat; no chat text, commands or tool output retained'}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $petLink '会话联动配置.json') -Encoding UTF8
+    @{project_path=$petProject;session_path=$ChatSessionPath;follow_project=$true;scope='Follow the latest main chat in this project; no chat text, commands or tool output retained'}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $petLink '会话联动配置.json') -Encoding UTF8
 }
 $petPreviewFiles=Join-Path $petAssets 'preview-files'
 if(Test-Path -LiteralPath $petPreviewFiles){Get-ChildItem -LiteralPath $petPreviewFiles | Copy-Item -Destination $petOut -Recurse -Force}
