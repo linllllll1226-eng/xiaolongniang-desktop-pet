@@ -17,15 +17,15 @@ public static class PetMenuTheme {
    <Style TargetType='{x:Type MenuItem}'>
     <Setter Property='OverridesDefaultStyle' Value='True'/><Setter Property='Padding' Value='10,8'/><Setter Property='MinHeight' Value='36'/><Setter Property='HorizontalContentAlignment' Value='Stretch'/><Setter Property='Background' Value='Transparent'/>
     <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type MenuItem}'>
-     <Grid><Border x:Name='Row' Background='{TemplateBinding Background}' CornerRadius='8' Padding='{TemplateBinding Padding}'>
+     <Grid Background='Transparent'><Border x:Name='Row' Background='{TemplateBinding Background}' CornerRadius='8' Padding='{TemplateBinding Padding}'>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width='25'/><ColumnDefinition Width='*'/><ColumnDefinition Width='28'/></Grid.ColumnDefinitions>
        <ContentPresenter x:Name='Icon' ContentSource='Icon' HorizontalAlignment='Left' VerticalAlignment='Center'/>
        <ContentPresenter Grid.Column='1' ContentSource='Header' RecognizesAccessKey='True' VerticalAlignment='Center' Margin='2,0,7,0'/>
        <TextBlock x:Name='Arrow' Grid.Column='2' Text='&#xE76C;' FontFamily='Segoe MDL2 Assets' FontSize='10' Foreground='#A38AB6' HorizontalAlignment='Right' VerticalAlignment='Center' Visibility='Collapsed'/>
        <Border x:Name='Switch' Grid.Column='2' Width='28' Height='16' Background='#E6E0EB' CornerRadius='8' Visibility='Collapsed'><Ellipse x:Name='Knob' Width='10' Height='10' Fill='White' HorizontalAlignment='Left' Margin='3,0'/></Border>
       </Grid></Border>
-      <Popup x:Name='PART_Popup' Placement='Right' IsOpen='{Binding IsSubmenuOpen,RelativeSource={RelativeSource TemplatedParent}}' AllowsTransparency='True' Focusable='False' PopupAnimation='None' HorizontalOffset='4'>
-       <Border Background='#FFFEFF' BorderBrush='#E7DEEE' BorderThickness='1' CornerRadius='12' Padding='6' MinWidth='226'><ScrollViewer VerticalScrollBarVisibility='Auto' HorizontalScrollBarVisibility='Disabled' CanContentScroll='True' MaxHeight='620'><ItemsPresenter KeyboardNavigation.DirectionalNavigation='Cycle'/></ScrollViewer></Border>
+      <Popup x:Name='PART_Popup' Placement='Right' PlacementTarget='{Binding RelativeSource={RelativeSource TemplatedParent}}' IsOpen='{Binding IsSubmenuOpen,RelativeSource={RelativeSource TemplatedParent}}' AllowsTransparency='True' Focusable='False' PopupAnimation='None' HorizontalOffset='0' VerticalOffset='-6'>
+       <Border Background='#FFFEFF' BorderBrush='#E7DEEE' BorderThickness='1' CornerRadius='12' Padding='6' MinWidth='226'><ScrollViewer VerticalScrollBarVisibility='Auto' HorizontalScrollBarVisibility='Disabled' CanContentScroll='True' MaxHeight='620'><ItemsPresenter x:Name='ItemsPresenter' KeyboardNavigation.DirectionalNavigation='Cycle' KeyboardNavigation.TabNavigation='Cycle' Grid.IsSharedSizeScope='True'/></ScrollViewer></Border>
       </Popup>
      </Grid>
      <ControlTemplate.Triggers>

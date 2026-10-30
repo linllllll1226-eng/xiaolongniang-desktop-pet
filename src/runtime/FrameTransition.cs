@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
@@ -17,6 +17,7 @@ public sealed class FrameTransition {
     readonly byte[] targetPixels=new byte[Stride*Height];
     readonly byte[] pixels=new byte[Stride*Height];
     readonly WriteableBitmap bitmap=new WriteableBitmap(Width,Height,96,96,PixelFormats.Pbgra32,null);
+    public double MaxPublishMilliseconds,MaxWarpMilliseconds;
     int duration;
     FlowField sourceFlow,targetFlow,between;
     readonly float[] mapA=new float[81*46*2],mapB=new float[81*46*2];
@@ -87,16 +88,17 @@ public sealed class FrameTransition {
     }
     public BitmapSource PresentPixels(byte[] target,double elapsed,bool blend) {
         var watch=Stopwatch.StartNew();
-        if(!blend||elapsed>=duration){bitmap.WritePixels(new Int32Rect(0,0,Width,Height),target,Stride,0);Weight=256;return bitmap;}
-        if(elapsed<=0){bitmap.WritePixels(new Int32Rect(0,0,Width,Height),from,Stride,0);Weight=0;return bitmap;}
+        if(!blend||elapsed>=duration){Publish(new Int32Rect(0,0,Width,Height),target,Stride,0);Weight=256;return bitmap;}
+        if(elapsed<=0){Publish(new Int32Rect(0,0,Width,Height),from,Stride,0);Weight=0;return bitmap;}
         double u=Math.Max(0,Math.Min(1,elapsed/duration));
         int weight=(int)Math.Round(256*u*u*(3-2*u)),inverse=256-weight;
-        if(warped)Warp(weight/256.0,weight,inverse);
+        if(warped){var warpWatch=Stopwatch.StartNew();Warp(weight/256.0,weight,inverse);MaxWarpMilliseconds=Math.Max(MaxWarpMilliseconds,warpWatch.Elapsed.TotalMilliseconds);}
         else for(int i=0;i<pixels.Length;i++)pixels[i]=(byte)((from[i]*inverse+target[i]*weight+128)>>8);
-        bitmap.WritePixels(new Int32Rect(0,0,Width,Height),pixels,Stride,0);
+        Publish(new Int32Rect(0,0,Width,Height),pixels,Stride,0);
         Weight=weight;MaxBlendMilliseconds=Math.Max(MaxBlendMilliseconds,watch.Elapsed.TotalMilliseconds);
         return bitmap;
     }
+    void Publish(Int32Rect rect,byte[] data,int stride,int offset){var watch=Stopwatch.StartNew();bitmap.WritePixels(rect,data,stride,offset);MaxPublishMilliseconds=Math.Max(MaxPublishMilliseconds,watch.Elapsed.TotalMilliseconds);}
     void Warp(double u,int weight,int inverse){
         Array.Clear(pixels,0,pixels.Length);
         // Geometry moves throughout the bridge. Retain one appearance until
@@ -110,6 +112,7 @@ public sealed class FrameTransition {
             int p=(gy*81+gx)*2;mapA[p]=(float)ax;mapA[p+1]=(float)ay;mapB[p]=(float)bx;mapB[p+1]=(float)by;
         }
         for(int y=top;y<bottom;y++){
+            double body=Ease((y-protectedHeadBottom)/22.0)*contourStrength;
             int gy=y/8;double fy=(y%8)/8.0;
             for(int x0=(left/8)*8;x0<right;x0+=8){
                 int gx=x0/8,p=(gy*81+gx)*2,q=p+81*2;double ax=mapA[p]*(1-fy)+mapA[q]*fy,ay=mapA[p+1]*(1-fy)+mapA[q+1]*fy,bx=mapB[p]*(1-fy)+mapB[q]*fy,by=mapB[p+1]*(1-fy)+mapB[q+1]*fy;
@@ -120,16 +123,17 @@ public sealed class FrameTransition {
                     int a00=(256-fa)*(256-ga),a10=fa*(256-ga),a01=(256-fa)*ga,a11=fa*ga,b00=(256-fb)*(256-gb),b10=fb*(256-gb),b01=(256-fb)*gb,b11=fb*gb;
                     int aa=va?(from[pa+3]*a00+from[pa+7]*a10+from[pa+Stride+3]*a01+from[pa+Stride+7]*a11+32768)>>16:0,bb=vb?(targetPixels[pb+3]*b00+targetPixels[pb+7]*b10+targetPixels[pb+Stride+3]*b01+targetPixels[pb+Stride+7]*b11+32768)>>16:0;
                     int mixAlpha=(aa*oldTexture+bb*texture+128)>>8,newAlpha=mixAlpha;
-                    double body=Ease((y-protectedHeadBottom)/22.0)*contourStrength;
                     if(body>0){
                         int da=ja*Width+ia,db=jb*Width+ib;
                         double sa=va?(sourceDistance[da]*a00+sourceDistance[da+1]*a10+sourceDistance[da+Width]*a01+sourceDistance[da+Width+1]*a11)/65536.0:-64;
                         double sb=vb?(targetDistance[db]*b00+targetDistance[db+1]*b10+targetDistance[db+Width]*b01+targetDistance[db+Width+1]*b11)/65536.0:-64;
                         double coverage=Math.Max(0,Math.Min(1,.5+sa*(1-u)+sb*u))*255;newAlpha=(int)Math.Round(mixAlpha*(1-body)+coverage*body);
                     }
+                    if(RecordDiagnostics&&body>.9){int oldAlpha=(aa*inverse+bb*weight+128)>>8;if(oldAlpha>32&&oldAlpha<220)BodySoftPixelsBefore++;if(newAlpha>32&&newAlpha<220)BodySoftPixelsAfter++;}
+                    // A transparent result has zero premultiplied RGB.
+                    if(newAlpha==0)continue;
                     for(int c=0;c<3;c++){int av=va?(from[pa+c]*a00+from[pa+4+c]*a10+from[pa+Stride+c]*a01+from[pa+Stride+4+c]*a11+32768)>>16:0,bv=vb?(targetPixels[pb+c]*b00+targetPixels[pb+4+c]*b10+targetPixels[pb+Stride+c]*b01+targetPixels[pb+Stride+4+c]*b11+32768)>>16:0;int mixed=(av*oldTexture+bv*texture+128)>>8;int color=mixAlpha>0?(mixed*newAlpha+mixAlpha/2)/mixAlpha:bb>0?(bv*newAlpha+bb/2)/bb:0;pixels[at+c]=(byte)Math.Max(0,Math.Min(newAlpha,color));}
                     pixels[at+3]=(byte)newAlpha;
-                    if(RecordDiagnostics&&body>.9){int oldAlpha=(aa*inverse+bb*weight+128)>>8;if(oldAlpha>32&&oldAlpha<220)BodySoftPixelsBefore++;if(newAlpha>32&&newAlpha<220)BodySoftPixelsAfter++;}
                 }
             }
         }

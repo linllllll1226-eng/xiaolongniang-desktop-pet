@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
@@ -10,6 +10,20 @@ public sealed class PetPreferences {
     public double Size=288,Left=double.NaN,Top=double.NaN;
     public bool Follow=true,Topmost=true,AutoNap=true,LinkCodex=false;
     public bool LinkChatGPT=false;
+#if SMALL_TALK
+    public bool SmallTalkEnabled=true;
+#endif
+#if FOCUS_COMPANION
+    public bool FocusReading=true,FocusShowTimer=true;
+    public int FocusMinutes=25;
+#endif
+#if DAILY_ROUTINE
+    public bool DailyRoutine=true;
+    public int DailyRhythm=1;
+#endif
+#if WINDOW_PERCH
+    public bool WindowPerch=true;
+#endif
 }
 public static class PreferenceStore {
     public static PetPreferences Load(string path) {
@@ -50,6 +64,28 @@ public sealed class PetBehavior {
         new int[]{800,850,850,850,850,800},new int[]{800,850,850,850,850,800},new int[]{800,850,850,850,850,800},new int[]{800,850,850,850,850,800}
     };
     public readonly int[][] Timeline;
+#if DAILY_ROUTINE
+    static PetBehavior(){
+        Array.Resize(ref Counts,27);Counts[26]=6;
+        Array.Resize(ref Durations,27);Durations[26]=new int[]{800,850,850,850,850,800};
+        Array.Resize(ref ActionRows,23);ActionRows[22]=26;
+        Array.Resize(ref ActionNames,23);ActionNames[22]="轻轻整理裙摆";
+#if CLICK_BOUNCE
+        Array.Resize(ref Counts,28);Counts[27]=6;
+        Array.Resize(ref Durations,28);Durations[27]=new int[]{800,850,850,850,850,800};
+        Array.Resize(ref ActionRows,24);ActionRows[23]=27;
+        Array.Resize(ref ActionNames,24);ActionNames[23]="连点鼓脸护头";
+        Array.Resize(ref Counts,29);Counts[28]=6;
+        Array.Resize(ref Durations,29);Durations[28]=new int[]{780,780,780,780,790,790};
+        Array.Resize(ref ActionRows,25);ActionRows[24]=28;
+        Array.Resize(ref ActionNames,25);ActionNames[24]="托平板轻点";
+#if TABLET_PHASES
+        Array.Resize(ref Counts,31);Counts[29]=Counts[30]=6;
+        Array.Resize(ref Durations,31);Durations[29]=new int[]{130,130,130,130,130,150};Durations[30]=new int[]{130,130,130,130,130,150};
+#endif
+#endif
+    }
+#endif
     public int TotalDuration(int row){int total=0;foreach(int d in Timeline[row])total+=d;return total;}
     public int Animation{get;private set;} public int Frame{get;private set;}
     public int Row{get;private set;} public int Column{get;private set;}
@@ -59,6 +95,31 @@ public sealed class PetBehavior {
     public bool Hidden{get;private set;}
     public bool MediaWaiting{get;private set;}
     public int PlaybackId{get;private set;}
+    public double PlaybackStartMilliseconds{get;private set;}
+    public double PlaybackRate{get;private set;}
+    public int ExitTarget{get;private set;}
+    bool exitOnce;
+    public bool RecoveringPose{get{return ExitTarget>=0;}}
+    static readonly int[] Exit22={252,252,252,252,252,252,252,252,252,252,234,231,225,210,210,210,204,198,183,180,183,189,186,189,180,180,186,186,186,186,180,186,192,198,204,210,216,222,228,234,240,246,252,252,252,252,252,252,252,252};
+    static readonly int[] Exit24={213,213,243,252,252,252,243,243,201,183,183,183,186,180,180,180,180,180,180,180,180,180,180,180,180,180,180,180,180,180,180,186,192,198,204,210,216,222,228,234,240,246,252,252,252,252,243,216,213,213};
+    public void PlayAfterExit(int row,bool once,long now){
+        bool urgent=row==14||row==15||row==16||row==17||row==27||Pressed||Dragged;
+        if(RecoveringPose&&!urgent&&row!=Animation){ExitTarget=row;exitOnce=once;return;}
+        if(!urgent&&!RecoveringPose&&(Animation==22||Animation==24)){
+            double phase=VisualTime(now);bool interior=Animation==22?phase>=1100&&phase<3800:phase>=850&&phase<3400;
+            if(interior){
+                int source=Animation,index=Math.Max(0,Math.Min(49,(int)(phase/100)));
+                int sample=(source==22?Exit22:Exit24)[index];
+                if(sample<246){PlayFrom(source,true,now,sample*1000.0/60);ExitTarget=row;exitOnce=once;PlaybackRate=2.6;StartVisualPlayback(now);return;}
+            }
+        }
+        Play(row,once,now);
+    }
+    public void SelectAfterExit(int row,long now){
+        CancelPointer(now);Touch(now);
+        if(row==15){Select(row,now);return;}
+        PlayAfterExit(row,row!=0&&row!=12&&row!=18&&row!=19&&row!=28,now);
+    }
     public bool NaturalIdleTransition{get;private set;}
     public bool NaturalReadingTransition{get;private set;}
     public long LastTouch{get;private set;} public long PendingClick{get;private set;}
@@ -67,9 +128,16 @@ public sealed class PetBehavior {
     public double VisualTime(long now) {
         double time=0;for(int i=0;i<Frame;i++)time+=Timeline[Animation][i];
         double remaining=Remaining(now);
-        return time+Math.Max(0,Math.Min(Timeline[Animation][Frame],Timeline[Animation][Frame]-remaining));
+        return time+Math.Max(0,Math.Min(Timeline[Animation][Frame],Timeline[Animation][Frame]-remaining*PlaybackRate));
     }
     int look=-1,clickAction=4;bool headPress,wokeOnPress,previewFlight;long nextFrame,pressStarted,holdUntil,pauseRemaining,menuStarted,deadlineReset,hiddenRemaining,mediaRemaining;
+#if CLICK_BOUNCE
+    int tapRun;long lastCompletedTap=-1,doublePressStarted;bool doublePress,retainClickPose;
+    public bool ClickReaction{get{return Animation==27&&SingleAction;}}
+    public void ResetTapRun(){tapRun=0;lastCompletedTap=-1;doublePress=false;retainClickPose=false;}
+    bool ContinuingTaps(long now){return lastCompletedTap>=0&&now>=lastCompletedTap&&now-lastCompletedTap<=600;}
+    void CompleteTap(long now){tapRun=ContinuingTaps(now)?Math.Min(3,tapRun+1):1;lastCompletedTap=now;}
+#endif
     // Coordinates use the fixed source canvas, so resizing the window does not
     // change which part of the character the user touched.
     public static int TapAction(double x,double y){return x>=265&&x<=375&&y>=178&&y<=215?24:4;}
@@ -90,12 +158,17 @@ public sealed class PetBehavior {
     public void Touch(long now){LastTouch=now;}
     public void Play(int row,bool once,long now) {
         if(row<0||row>=Counts.Length||row==9||row==10)throw new ArgumentOutOfRangeException("row");
-        Animation=row;Frame=0;look=-1;Row=row;Column=0;SingleAction=once||row==25;Sleeping=row==12;
-        PlaybackId++;MediaWaiting=false;NaturalIdleTransition=false;NaturalReadingTransition=false;
+        ExitTarget=-1;PlaybackRate=1;Animation=row;Frame=0;look=-1;Row=row;Column=0;SingleAction=once||row==25;Sleeping=row==12;
+        PlaybackId++;PlaybackStartMilliseconds=0;MediaWaiting=false;NaturalIdleTransition=false;NaturalReadingTransition=false;
         if(row!=15&&row!=16)previewFlight=false;
         PendingClick=0;nextFrame=now+Timeline[row][0];deadlineReset=now;holdUntil=0;
         if(Paused)pauseRemaining=Timeline[row][0];
         if(Hidden)hiddenRemaining=Timeline[row][0];
+    }
+    // Enter an existing clip at a retained moving pose. The controller owns
+    // this offset so renderer startup and natural completion use one clock.
+    public void PlayFrom(int row,bool once,long now,double milliseconds) {
+        Play(row,once,now);PlaybackStartMilliseconds=Math.Max(0,Math.Min(TotalDuration(row)-1,milliseconds));StartVisualPlayback(now);
     }
     // A decoded pose must be available before its time is consumed. This is a
     // visual hold only: pointer gestures and pending clicks can still replace it.
@@ -110,35 +183,64 @@ public sealed class PetBehavior {
     }
     public void StartVisualPlayback(long now) {
         Frame=0;Row=Animation;Column=0;
-        nextFrame=now+Timeline[Animation][0];deadlineReset=now;
-        if(MediaWaiting)mediaRemaining=Timeline[Animation][0];
-        if(Paused)pauseRemaining=Timeline[Animation][0];
-        if(Hidden)hiddenRemaining=Timeline[Animation][0];
+        double offset=PlaybackStartMilliseconds;
+        while(Frame+1<Timeline[Animation].Length&&offset>=Timeline[Animation][Frame]){offset-=Timeline[Animation][Frame];Frame++;}
+        Column=Frame;long remaining=Math.Max(1,(long)Math.Ceiling((Timeline[Animation][Frame]-offset)/PlaybackRate));
+        nextFrame=now+remaining;deadlineReset=now;
+        if(MediaWaiting)mediaRemaining=remaining;
+        if(Paused)pauseRemaining=remaining;
+        if(Hidden)hiddenRemaining=remaining;
     }
-    public void Select(int row,long now){CancelPointer(now);Touch(now);if(row==15){Play(16,true,now);previewFlight=true;}else Play(row,row!=0&&row!=12&&row!=18&&row!=19,now);}
+    public void Select(int row,long now){CancelPointer(now);Touch(now);if(row==15){Play(16,true,now);previewFlight=true;}else Play(row,row!=0&&row!=12&&row!=18&&row!=19&&row!=28,now);}
     public void Wake(long now){CancelPointer(now);Touch(now);if(Sleeping)Play(13,true,now);}
     public void BeginPress(bool head,int clickCount,long now) {
         Touch(now);PendingClick=0;clickAction=4;
         wokeOnPress=Sleeping||(Animation==13&&SingleAction);
         if(Sleeping)Play(13,true,now);
+#if CLICK_BOUNCE
+        bool third=ContinuingTaps(now)&&tapRun>=2;
+        retainClickPose=ClickReaction||third;doublePress=false;
+        if(wokeOnPress)ResetTapRun();
+        if(clickCount>=2&&!wokeOnPress&&!retainClickPose){doublePress=true;doublePressStarted=now;Pressed=false;Dragged=false;Petting=false;Play(3,true,now);return;}
+#else
         if(clickCount>=2&&!wokeOnPress){Pressed=false;Dragged=false;Petting=false;Play(3,true,now);return;}
+#endif
         Pressed=true;Dragged=false;Petting=false;headPress=head&&!wokeOnPress;pressStarted=now;
     }
     public void Drag(int facing,long now) {
         if(!Pressed)return;
+#if CLICK_BOUNCE
+        ResetTapRun();
+#endif
         PendingClick=0;Petting=false;
         if(!Dragged||Animation!=14)Play(14,false,now);
         Dragged=true;
     }
     public void EndPress(long now) {
+#if CLICK_BOUNCE
+        if(doublePress){doublePress=false;if(now-doublePressStarted<=350)CompleteTap(now);else ResetTapRun();return;}
+#endif
         if(!Pressed)return;
         bool moved=Dragged,patted=Petting;Pressed=false;Dragged=false;Petting=false;Touch(now);
         if(moved){Play(0,false,now);holdUntil=now+650;}
         else if(patted){SingleAction=true;holdUntil=now+800;}
         else if(wokeOnPress){Play(13,true,now);}
-        else {Play(0,false,now);PendingClick=now+ClickDelay;}
+        else {
+#if CLICK_BOUNCE
+            if(now-pressStarted<=350){
+                CompleteTap(now);
+                if(ClickReaction)return;
+                if(tapRun>=3){Play(27,true,now);tapRun=0;return;}
+            }else ResetTapRun();
+            if(retainClickPose&&SingleAction)return;
+#endif
+            Play(0,false,now);PendingClick=now+ClickDelay;
+        }
     }
     public void CancelPointer(long now) {
+#if CLICK_BOUNCE
+        ResetTapRun();
+#endif
         PendingClick=0;
         if(Pressed){Pressed=false;Dragged=false;Petting=false;Play(0,false,now);}
     }
@@ -168,8 +270,15 @@ public sealed class PetBehavior {
         if(Paused||MenuOpen||Hidden)return;
         if(PendingClick>0){if(now<PendingClick)return;PendingClick=0;Play(clickAction,true,now);}
         if(Pressed) {
-            if(!Dragged&&headPress&&!Petting&&now-pressStarted>=550){Petting=true;Play(11,false,now);}
+            if(!Dragged&&headPress&&!Petting&&now-pressStarted>=550){Petting=true;
+#if CLICK_BOUNCE
+                ResetTapRun();
+#endif
+                Play(11,false,now);}
             if(Dragged||Petting)Advance(now);
+#if CLICK_BOUNCE
+            else if(retainClickPose)Advance(now);
+#endif
             return;
         }
         if(MediaWaiting)return;
@@ -185,13 +294,17 @@ public sealed class PetBehavior {
         while(now>=nextFrame&&safety++<24) {
             Frame++;
             if(Frame>=Counts[Animation]) {
+                if(RecoveringPose){int target=ExitTarget;bool once=exitOnce;Play(target,once,now);if(target==0){NaturalIdleTransition=true;holdUntil=now+800;}return;}
+#if TABLET_PHASES
+                if(Animation==29){Play(28,false,now);return;}
+#endif
                 if(Animation==25){Play(19,false,now);NaturalReadingTransition=true;return;}
                 if(Animation==16){Play(15,previewFlight,now);return;}
                 if(Animation==15&&SingleAction){Play(17,true,now);return;}
                 if(SingleAction){Play(0,false,now);NaturalIdleTransition=true;holdUntil=now+800;return;}
                 Frame=0;
             }
-            Row=Animation;Column=Frame;nextFrame+=Timeline[Animation][Frame];
+            Row=Animation;Column=Frame;nextFrame+=(long)Math.Ceiling(Timeline[Animation][Frame]/PlaybackRate);
         }
         if(safety>=24)nextFrame=now+Timeline[Animation][Frame];
     }

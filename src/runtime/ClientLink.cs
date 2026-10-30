@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -9,7 +9,7 @@ namespace WhiteDragon {
 // Reads only the accessibility names of visible Send/Stop controls. Chat
 // documents, message text, credentials and transcripts are never requested.
 public sealed class ClientObservation {
- public bool Found,Observable,Busy,Thinking,NeedsInput;public int ButtonCount;public IntPtr Window;public string Error;
+ public bool Found,Observable,Busy,Thinking,NeedsInput,ComposerPresent;public int ButtonCount;public IntPtr Window;public string Error;
 }
 public sealed class ClientLink:IDisposable {
  readonly object gate=new object();readonly AutoResetEvent wake=new AutoResetEvent(false);Thread worker;volatile bool stopped,enabled;
@@ -19,7 +19,7 @@ public sealed class ClientLink:IDisposable {
  public bool WorkerStopped{get{return worker==null||!worker.IsAlive;}}
  public readonly List<string[]> RealStateEvents=new List<string[]>();
  public string LastCallbackUtc{get{long ticks=Interlocked.Read(ref lastCallbackTicks);return ticks>0?new DateTime(ticks,DateTimeKind.Utc).ToString("o"):null;}}
- public bool Enabled{get{return enabled;}set{enabled=value;if(!value)lock(gate){state=null;previousBusy=false;description="未开启";}wake.Set();}}
+ public bool Enabled{get{return enabled;}set{enabled=value;if(!value)lock(gate){state=null;previousBusy=false;idleSamples=0;readyUntil=DateTime.MinValue;description="未开启";}wake.Set();}}
  public string Description{get{lock(gate)return description;}}
  public PetStatus State(DateTime utc){lock(gate){DateTime end;return enabled&&state!=null&&DateTime.TryParse(state.expires_utc,out end)&&end.ToUniversalTime()>utc?state:null;}}
  public void Start(){if(worker!=null)return;worker=new Thread(Loop){IsBackground=true,Name="WhiteDragon client control observer"};worker.SetApartmentState(ApartmentState.MTA);worker.Start();}
@@ -41,7 +41,7 @@ public sealed class ClientLink:IDisposable {
   lock(gate){
    if(!enabled)return;
    if(!observation.Found){state=null;previousBusy=false;idleSamples=0;description="客户端未打开";return;}
-   if(!observation.Observable){description="已打开 · 未取得回复状态";return;}
+   if(!observation.Observable){state=null;previousBusy=false;idleSamples=0;readyUntil=DateTime.MinValue;description="已打开 · 未取得回复状态";return;}
    if(previousWindow!=observation.Window){previousBusy=false;idleSamples=0;readyUntil=DateTime.MinValue;previousWindow=observation.Window;}
    string status;
    if(observation.NeedsInput){previousBusy=true;idleSamples=0;readyUntil=DateTime.MinValue;status="needs_input";description="已连接 · 等你回答";}
@@ -57,6 +57,7 @@ public sealed class ClientLink:IDisposable {
  public static bool IsThinkingControl(string name){name=(name??"").Trim().ToLowerInvariant();return name=="thinking"||name.StartsWith("thinking...")||name.StartsWith("thinking…")||name=="正在思考"||name=="思考中"||name.StartsWith("正在思考…")||name.StartsWith("思考中…");}
  public static bool IsQuestionSubmit(string name){name=(name??"").Trim().ToLowerInvariant();return name=="submit"||name=="submit answers"||name=="submit answer"||name=="提交"||name=="提交答案"||name=="提交回答"||name=="发送答案"||name=="回答问题";}
  public static bool IsApprovalControl(string name){name=(name??"").Trim().ToLowerInvariant();return name=="allow once"||name=="allow this time"||name=="approve"||name=="approve once"||name=="approve and run"||name=="允许一次"||name=="仅本次允许"||name=="允许并运行"||name=="批准";}
+ public static bool IsComposerName(string name){return name=="和 Codex 一起工作"||name=="Ask Codex anything"||name=="Message ChatGPT"||name=="向 ChatGPT 发送消息"||name=="向ChatGPT发送消息";}
  public static ClientObservation Scan(){
   var result=new ClientObservation();IntPtr foreground=GetForegroundWindow();
   foreach(var process in Process.GetProcessesByName("ChatGPT"))try{
@@ -73,6 +74,10 @@ public sealed class ClientLink:IDisposable {
    var buttons=root.FindAll(TreeScope.Descendants,new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.Button));
    var candidate=new ClientObservation{Found=true,Window=h,ButtonCount=buttons.Count};
    for(int i=0;i<buttons.Count;i++)try{var info=buttons[i].Current;if(info.IsOffscreen&&!minimized)continue;string name=info.Name;if(IsStop(name)&&info.IsEnabled){candidate.Busy=true;candidate.Observable=true;}if(IsSend(name))candidate.Observable=true;if(info.IsEnabled&&(IsQuestionSubmit(name)||IsApprovalControl(name))){candidate.NeedsInput=true;candidate.Observable=true;}if(info.IsEnabled&&IsThinkingControl(name))candidate.Thinking=true;}catch(ElementNotAvailableException){}
+   // A blank idle composer can omit the Send button entirely. Match only
+   // known input accessibility names; never request the edit value or text.
+   var composers=root.FindAll(TreeScope.Descendants,new AndCondition(new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.Edit),new OrCondition(new PropertyCondition(AutomationElement.NameProperty,"和 Codex 一起工作"),new PropertyCondition(AutomationElement.NameProperty,"Ask Codex anything"),new PropertyCondition(AutomationElement.NameProperty,"Message ChatGPT"),new PropertyCondition(AutomationElement.NameProperty,"向 ChatGPT 发送消息"),new PropertyCondition(AutomationElement.NameProperty,"向ChatGPT发送消息"))));
+   for(int i=0;i<composers.Count;i++)try{var info=composers[i].Current;if(minimized||!info.IsOffscreen){candidate.ComposerPresent=true;candidate.Observable=true;break;}}catch(ElementNotAvailableException){}
    if(candidate.Busy&&!candidate.Thinking){var indicators=root.FindAll(TreeScope.Descendants,new OrCondition(new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.StatusBar),new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.ProgressBar)));for(int i=0;i<indicators.Count;i++)try{var info=indicators[i].Current;if((minimized||!info.IsOffscreen)&&IsThinkingControl(info.Name)){candidate.Thinking=true;break;}}catch(ElementNotAvailableException){}}
    result=candidate;if(h==foreground)break;
   }catch(Exception error){result.Error=error.GetType().Name;}finally{process.Dispose();}

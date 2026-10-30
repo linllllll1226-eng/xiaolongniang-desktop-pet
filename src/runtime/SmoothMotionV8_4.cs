@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -29,7 +29,10 @@ public sealed class SmoothMotion:IDisposable {
     const int RowLimit=2,FrameLimit=32,FrontSamples=3,FrontLimit=64,FrameBytes=FrameWidth*FrameHeight*4;
     sealed class CachedFrame {public BitmapSource Image;public byte[] Pixels;public long Used;}
     sealed class Row {
-        public int Number,Requested,LastSample=-1;public BitmapSource[] Frames;public long Used,Bytes;
+        public int Number,Requested,LastSample=-1,SampleStep=1;public BitmapSource[] Frames;public long Used,Bytes;
+#if WINDOW_PERCH
+        public int Direction=1;
+#endif
         public bool Loading,Failed;public int[] Offsets,Lengths;
         public readonly Dictionary<int,CachedFrame> Stream=new Dictionary<int,CachedFrame>();
         public BitmapSource Last;
@@ -100,14 +103,35 @@ public sealed class SmoothMotion:IDisposable {
         entry=new Row{Number=row,Used=++serial};cache[row]=entry;Signal();return entry;
     }
     public void Warm(int row){lock(gate)Request(row,false);}
-    public void WarmFrom(int row,double time){lock(gate){Row entry=Request(row,false);if(entry==null)return;int sample=Index(spec.rows[row.ToString()],time);if(entry.Requested!=sample){entry.Requested=sample;Signal();}}}
+    public void WarmFrom(int row,double time){WarmForward(row,time,1);}
+    // A 2.6x recovery only displays about half of the 60Hz source samples.
+    // Decode that same bounded window at a stable even-sample phase, instead
+    // of spending the worker budget on frames that cannot be presented.
+    public void WarmRecovery(int row,double time){WarmForward(row,time,2);}
+    void WarmForward(int row,double time,int step){lock(gate){Row entry=Request(row,false);if(entry==null)return;
+        if(entry.SampleStep!=step){entry.SampleStep=step;Signal();}
+#if WINDOW_PERCH
+        if(entry.Direction!=1){entry.Direction=1;Signal();}
+#endif
+        int sample=Index(spec.rows[row.ToString()],time);if(entry.Requested!=sample){entry.Requested=sample;Signal();}}}
+#if WINDOW_PERCH
+    public void WarmDirected(int row,double time,int direction){lock(gate){Row entry=Request(row,false);if(entry==null)return;bool resetStep=entry.SampleStep!=1;entry.SampleStep=1;int sample=Index(spec.rows[row.ToString()],time);direction=direction<0?-1:1;if(resetStep||entry.Requested!=sample||entry.Direction!=direction){entry.Requested=sample;entry.Direction=direction;Signal();}}}
+    int DirectedAhead(SmoothRowInfo meta,Row row,int amount){int sample=row.Requested+row.Direction*amount*row.SampleStep;return meta.loop?(sample%meta.count+meta.count)%meta.count:Math.Max(0,Math.Min(meta.count-1,sample));}
+#endif
     // The final non-looping pose owns a full duration/count interval before the behavior changes rows.
-    int Index(SmoothRowInfo meta,double time){double unit=Double.IsNaN(time)?0:Math.Max(0,Math.Min(1,time/Math.Max(1,meta.duration)));return Math.Min(meta.count-1,(int)Math.Floor(unit*meta.count+.00001));}
+    int Index(SmoothRowInfo meta,double time){double unit=Double.IsNaN(time)?0:Math.Max(0,Math.Min(1,time/Math.Max(1,meta.duration)));int sample=Math.Min(meta.count-1,(int)Math.Floor(unit*meta.count+.00001));Row row;if(sample<meta.count-1&&cache.TryGetValue(meta.row,out row)&&row.SampleStep>1)sample=sample/row.SampleStep*row.SampleStep;return sample;}
     int Stored(SmoothRowInfo meta,int sample){return meta.map==null?sample:meta.map[sample];}
     int Ahead(SmoothRowInfo meta,int sample,int amount){return meta.loop?(sample+amount)%meta.count:Math.Min(meta.count-1,sample+amount);}
+    int RequestedAhead(SmoothRowInfo meta,Row row,int amount){
+#if WINDOW_PERCH
+        return DirectedAhead(meta,row,amount);
+#else
+        return Ahead(meta,row.Requested,amount*row.SampleStep);
+#endif
+    }
     public int GetSampleIndex(int row,double time){lock(gate){SmoothRowInfo meta;return spec.rows.TryGetValue(row.ToString(),out meta)?Index(meta,time):-1;}}
     bool Find(Row row,int stored,out CachedFrame frame){if(row.Stream.TryGetValue(stored,out frame))return true;Dictionary<int,CachedFrame> head;return fronts.TryGetValue(row.Number,out head)&&head.TryGetValue(stored,out frame);}
-    bool Ready(Row entry,SmoothRowInfo meta,int sample,int lookahead){if(entry.Failed)return false;if(!Streaming(entry.Number))return entry.Frames!=null;CachedFrame frame;for(int k=0;k<=lookahead;k++)if(!Find(entry,Stored(meta,Ahead(meta,sample,k)),out frame))return false;return true;}
+    bool Ready(Row entry,SmoothRowInfo meta,int sample,int lookahead){if(entry.Failed)return false;if(!Streaming(entry.Number))return entry.Frames!=null;CachedFrame frame;for(int k=0;k<=lookahead;k++)if(!Find(entry,Stored(meta,Ahead(meta,sample,k*entry.SampleStep)),out frame))return false;return true;}
     // Nonblocking; lookahead=2 checks this and the next two samples. It does not move the decoder cursor.
     public bool IsReady(int row,double time,int lookahead){lock(gate){Row entry;SmoothRowInfo meta;if(stopped||!cache.TryGetValue(row,out entry)||!spec.rows.TryGetValue(row.ToString(),out meta))return false;return Ready(entry,meta,Index(meta,time),Math.Max(0,Math.Min(LookAhead,lookahead)));}}
     public bool EnsureReady(int row,int timeout){return EnsureSample(row,0,timeout);}
@@ -167,7 +191,7 @@ public sealed class SmoothMotion:IDisposable {
         if(r.Failed||r.Loading)return -1;
         if(!Streaming(r.Number))return r.Frames==null?0:-1;
         var meta=spec.rows[r.Number.ToString()];CachedFrame frame;
-        for(int k=0;k<=LookAhead;k++){int i=Stored(meta,Ahead(meta,r.Requested,k));if(!Find(r,i,out frame))return i;}
+        for(int k=0;k<=LookAhead;k++){int i=Stored(meta,RequestedAhead(meta,r,k));if(!Find(r,i,out frame))return i;}
         return -1;
     }
     int FrontCount(){int count=0;foreach(var head in fronts.Values)count+=head.Count;return count;}
@@ -197,6 +221,8 @@ public sealed class SmoothMotion:IDisposable {
                 timings.Inflate=phase.Elapsed.TotalMilliseconds;
             }
         }
+        BookStackConsistency.Apply(entry.Number,index,pixels);
+        MotionColorGrade.Apply(entry.Number,index,pixels);
         return pixels;
     }
     BitmapSource[] DecodeAtlas(Row entry,out long bytes){
@@ -231,7 +257,7 @@ public sealed class SmoothMotion:IDisposable {
                                 // same look-ahead window. Preserve this window and retire a
                                 // past frame, including across a loop/map boundary.
                                 var meta=spec.rows[entry.Number.ToString()];int victim=-1;long oldest=long.MaxValue;
-                                foreach(var kv in entry.Stream){bool needed=false;for(int k=0;k<=LookAhead;k++)if(Stored(meta,Ahead(meta,entry.Requested,k))==kv.Key){needed=true;break;}if(!needed&&kv.Value.Used<oldest){oldest=kv.Value.Used;victim=kv.Key;}}
+                                foreach(var kv in entry.Stream){bool needed=false;for(int k=0;k<=LookAhead;k++)if(Stored(meta,RequestedAhead(meta,entry,k))==kv.Key){needed=true;break;}if(!needed&&kv.Value.Used<oldest){oldest=kv.Value.Used;victim=kv.Key;}}
                                 if(victim<0)throw new InvalidDataException("Frame cache cannot retain its look-ahead window");
                                 var removed=entry.Stream[victim];entry.Stream.Remove(victim);Recycle(removed);
                             }

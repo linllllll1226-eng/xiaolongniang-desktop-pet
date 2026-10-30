@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,8 +23,27 @@ public sealed partial class PetWindow {
   int[] quickRows={11,3,0};string[] quickNames={"摸摸头","挥挥手","回待机"};for(int i=0;i<3;i++){int row=quickRows[i];var button=new Button{Content=quickNames[i],Margin=new Thickness(i==0?0:3,0,i==2?0:3,0),Tag=row};button.Click+=delegate(object sender,RoutedEventArgs e){e.Handled=true;menu.IsOpen=false;Choose(row);};Grid.SetColumn(button,i);quick.Children.Add(button);}menu.Items.Add(Card(quick));
   var actions=MenuEntry("更多动作","\uE712",null);
   string[] groups={"互动与表情","日常陪伴","移动与小龙翼"};int[][] rows={new int[]{3,4,5,8,11,13,24},new int[]{0,6,7,12,18,19,20,21,22,23,25},new int[]{1,2,14,15}};
+#if DAILY_ROUTINE
+  rows[1]=new int[]{0,6,7,12,18,19,20,21,22,23,25,26};
+#endif
+#if CLICK_BOUNCE
+  rows[0]=new int[]{3,4,5,8,11,13,24,27};
+  rows[1]=new int[]{0,6,7,12,18,19,20,21,22,23,25,26,28};
+#endif
   for(int g=0;g<groups.Length;g++){var group=new MenuItem{Header=groups[g]};foreach(int r in rows[g]){int row=r;group.Items.Add(MenuEntry(smooth.ActionName(row),"\uE768",delegate{Choose(row);}));}actions.Items.Add(group);}menu.Items.Add(actions);
   pauseItem=MenuToggle("暂停动画","\uE769",behavior.Paused,delegate(bool v){behavior.SetPaused(v,clock.ElapsedMilliseconds);RenderFrame();});menu.Items.Add(pauseItem);
+#if WINDOW_PERCH
+  BuildPerchMenu();
+#endif
+#if DAILY_ROUTINE
+  BuildDailyMenu();
+#endif
+#if FOCUS_COMPANION
+  BuildFocusMenu();
+#endif
+#if SMALL_TALK
+  BuildSmallTalkMenu();
+#endif
   menu.Items.Add(new Separator());
   var links=MenuEntry("ChatGPT 与 Codex 联动","\uE71B",null);
   codexConnection=PetMenuTheme.Text("Codex · 等待任务事件",11,"#9A85A9");links.Items.Add(Card(new Border{Child=codexConnection,Padding=new Thickness(12,8,12,4)}));
@@ -38,18 +57,44 @@ public sealed partial class PetWindow {
   var sizes=MenuEntry("角色大小","\uE740",null);foreach(int n in new int[]{280,350,420,480}){int size=n;var entry=MenuEntry(n==350?"标准 · 与 DeepSeek 同高":n==280?"小一点":n==420?"稍大一点":"大一点","\uE91B",delegate{ResizePet(size);});entry.Tag=size;sizes.Items.Add(entry);}sizes.SubmenuOpened+=delegate{foreach(MenuItem s in sizes.Items){s.IsCheckable=true;s.IsChecked=Math.Abs(bodyWidth-(int)s.Tag)<.5;}};display.Items.Add(sizes);
   display.Items.Add(MenuEntry("回到屏幕右下角","\uE80F",ResetPosition));menu.Items.Add(display);
   menu.Items.Add(new Separator());menu.Items.Add(MenuEntry("暂时隐藏 · 托盘找回","\uE921",delegate{SetHidden(true);}));var exit=MenuEntry("退出小龙娘","\uE7E8",Close);exit.Foreground=PetMenuTheme.Color("#A17386");menu.Items.Add(exit);
-  var footer=PetMenuTheme.Text("WHITE DRAGON    ·    v10.9",9,"#BAA7C9");footer.Margin=new Thickness(12,8,0,5);menu.Items.Add(Card(footer));image.ContextMenu=menu;
+  var footer=PetMenuTheme.Text(
+#if CLICK_BOUNCE
+  "WHITE DRAGON    ·    v10.15",
+#elif SMALL_TALK
+  "WHITE DRAGON    ·    v10.13",
+#elif FOCUS_COMPANION
+  "WHITE DRAGON    ·    v10.12.1",
+#elif DAILY_ROUTINE
+  "WHITE DRAGON    ·    v10.11",
+#elif WINDOW_PERCH
+  "WHITE DRAGON    ·    v10.10.2",
+#else
+  "WHITE DRAGON    ·    v10.9.3",
+#endif
+  9,"#BAA7C9");footer.Margin=new Thickness(12,8,0,5);menu.Items.Add(Card(footer));image.ContextMenu=menu;
  }
  void RefreshMenu(){
   if(menuMood==null)return;
+#if SMALL_TALK
+  RefreshSmallTalkMenu();
+#endif
+#if FOCUS_COMPANION
+  RefreshFocusMenu();
+#endif
+#if DAILY_ROUTINE
+  RefreshDailyMenu();
+#endif
+#if WINDOW_PERCH
+  RefreshPerchMenu();
+#endif
   menuMood.Text=behavior.Paused?"休息一下，等你回来":bridgeSource!=null?SourceName(bridgeSource)+" · "+StateName(bridgeStatus):"今天也陪着你";
   pauseItem.IsChecked=behavior.Paused;topItem.IsChecked=preferences.Topmost;napItem.IsChecked=preferences.AutoNap;
   codexLinkItem.IsChecked=preferences.LinkCodex;chatgptLinkItem.IsChecked=preferences.LinkChatGPT;
   codexConnection.Text="Codex · "+(!preferences.LinkCodex?"未开启":lastCodexState!=null?StateName(lastCodexState.status):"等待新任务事件");
   chatgptConnection.Text="ChatGPT · "+(!preferences.LinkChatGPT?"未开启":clientLink.Description);
  }
- static string SourceName(string source){return source=="codex"?"Codex 回调":source=="chatgpt-client"?"客户端联动":"助手";}
- static string StateName(string state){switch(state){case "working":return "正在工作";case "thinking":return "正在思考";case "review":return "正在检查";case "needs_input":return "等你回答";case "ready":return "本轮完成";case "error":return "遇到问题";default:return "安静陪伴";}}
+ static string SourceName(string source){return source=="codex-events"?"Codex 会话事件":source=="codex"?"Codex 回调":source=="chatgpt-client"?"客户端联动":"助手";}
+ static string StateName(string state){switch(state){case "working":return "正在工作";case "executing":return "正在执行命令";case "thinking":return "正在思考";case "review":return "正在检查";case "needs_input":return "等你回答";case "ready":return "回复已结束";case "error":return "遇到问题";default:return "安静陪伴";}}
 #endif
 }
 }

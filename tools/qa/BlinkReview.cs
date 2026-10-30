@@ -55,7 +55,7 @@ public static class BlinkReview {
      if(Convert.ToInt32(Field(window,"shownRow"))==0&&elapsed>500){
       int sample=Convert.ToInt32(Field(window,"presentedSampleIndex"));if(lastSample>270&&sample<30)loops++;lastSample=sample;
       if(eye>=1&&eye<=11){
-       var visible=(byte[])Field(window,"livePixels");double time=Convert.ToDouble(Field(window,"presentedVisualTime"));bool ready=(bool)Call(smooth,"TryCopyExact",0,time,expected);
+       var visible=Pixels(image);double time=Convert.ToDouble(Field(window,"presentedVisualTime"));bool ready=(bool)Call(smooth,"TryCopyExact",0,time,expected);
        if(ready){int outside=0,inside=0;for(int y=0;y<360;y++)for(int x=0;x<640;x++)for(int c=0;c<4;c++){int p=(y*640+x)*4+c;if(visible[p]!=expected[p]){if(x>=263&&x<373&&y>=153&&y<217)inside++;else outside++;}}
         Check(outside==0,"Blink changes body, hands, hair, or colours outside eye rectangle");outsidePixelProbes++;if(inside>20)eyePixelProbes++;
        }
@@ -67,7 +67,7 @@ public static class BlinkReview {
    };
    app.Run(window);report["real_idle_duration_ms"]=clock.ElapsedMilliseconds;report["real_blink_history"]=Field(schedule,"History");report["real_started"]=Number(schedule,"Started");report["real_completed"]=Number(schedule,"Completed");report["body_loop_boundaries"]=loops;report["freeze_cases_passed"]=completedFreeze;report["eye_pixel_probes"]=eyePixelProbes;report["outside_eye_unchanged_probes"]=outsidePixelProbes;report["observed_eye_frames"]=observed;report["worker_stopped"]=Prop(smooth,"WorkerStopped");Check((bool)report["worker_stopped"],"Blink QA decoder worker remains alive");
   }catch(Exception e){errors.Add(e.ToString());}
-  report["ok"]=errors.Count==0;report["failures"]=errors;report["scope"]="Independent seeded five-minute schedule and 35-second hidden native WPF playback; freeze behavior and eye-only surface changes inspected. No OS cursor movement or installed settings.";
+  report["ok"]=errors.Count==0;report["failures"]=errors;report["pixel_probe_source"]="Actual displayed image.Source, not the decoder scratch buffer which may contain the next action while waiting";report["scope"]="Independent seeded five-minute schedule and 35-second hidden native WPF playback; freeze behavior and eye-only surface changes inspected. No OS cursor movement or installed settings.";
   File.WriteAllText(Path.Combine(output,"blink-review.json"),new JavaScriptSerializer{MaxJsonLength=4000000}.Serialize(report));return errors.Count==0?0:1;
  }
 }

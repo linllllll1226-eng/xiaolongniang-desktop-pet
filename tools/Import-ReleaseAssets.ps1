@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$Executable,[string]$OutputDirectory='work\release-assets-v109')
+﻿param([Parameter(Mandatory=$true)][string]$Executable,[string]$OutputDirectory='work\release-assets-v1015')
 $ErrorActionPreference='Stop';$petProject=Split-Path -Parent $PSScriptRoot
 $petInput=[IO.Path]::GetFullPath($Executable);if(-not(Test-Path -LiteralPath $petInput -PathType Leaf)){throw 'Release executable is missing'}
 $petOutput=[IO.Path]::GetFullPath((Join-Path $petProject $OutputDirectory));if(-not $petOutput.StartsWith($petProject+[IO.Path]::DirectorySeparatorChar)){throw 'Imported assets must stay inside project'}
@@ -11,7 +11,7 @@ if(-not(Test-Path -LiteralPath $petIcon)){
  if(Test-Path -LiteralPath $petOriginalIcon){Copy-Item -LiteralPath $petOriginalIcon -Destination $petIcon}else{Add-Type -AssemblyName System.Drawing;$petImage=[Drawing.Icon]::ExtractAssociatedIcon($petInput);$petStream=[IO.File]::Create($petIcon);try{$petImage.Save($petStream)}finally{$petStream.Dispose();$petImage.Dispose()}}
 }
 $petCompanionRoot=Join-Path $petOutput 'preview-files';$petReleaseFolder=Split-Path -Parent $petInput
-$petCompanions=@('打开预览.html','联动说明.html','抛掷体验.html','修正前后对比.html','素材目录.js','随机眨眼.js','抛掷运动.js','角色主图.png','眨眼眼睑图集.png','眨眼参数.json','菜单预览.png','联动菜单预览.png')
+$petCompanions=@('气泡预览.png','打开预览.html','平板三段预览.html','播放修正对照.html','拿书优化前后.mp4','色差校正前后.jpg','手与书堆前后.jpg','实际窗口回弹三帧.jpg','联动说明.html','抛掷体验.html','修正前后对比.html','素材目录.js','随机眨眼.js','阅读书堆.js','抛掷运动.js','角色主图.png','眨眼眼睑图集.png','眨眼参数.json','菜单预览.png','联动菜单预览.png')
 foreach($petRelative in $petCompanions){$petFrom=Join-Path $petReleaseFolder $petRelative;if(Test-Path -LiteralPath $petFrom){New-Item -ItemType Directory -Force -Path $petCompanionRoot|Out-Null;Copy-Item -LiteralPath $petFrom -Destination (Join-Path $petCompanionRoot $petRelative)}}
 foreach($petMediaFolder in @('动画','衔接对比素材')){
  $petFromFolder=Join-Path $petReleaseFolder $petMediaFolder

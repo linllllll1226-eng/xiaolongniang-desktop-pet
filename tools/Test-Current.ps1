@@ -1,8 +1,8 @@
 ﻿param(
- [string]$Target='outputs\小龙娘_v10.9_持续思考与阅读版\启动小龙娘.exe',
- [string]$OutputDirectory='work\style-v109\native',
+ [string]$Target='outputs\小龙娘_v10.15.1_气泡微调版\启动小龙娘.exe',
+ [string]$OutputDirectory='work\bubble-polish-20261030\core',
  [ValidateSet('All','Switch','Menu','Indicator','Transition','Blink','Flight','Library','Moving')][string]$Suite='All',
- [string]$Baseline='outputs\小龙娘_v10.5_动作衔接版\启动小龙娘.exe'
+ [string]$Baseline='outputs\小龙娘_v10.14.6_播放收尾版\启动小龙娘.exe'
 )
 $ErrorActionPreference='Stop';$petProject=Split-Path -Parent $PSScriptRoot
 $petTarget=if([IO.Path]::IsPathRooted($Target)){[IO.Path]::GetFullPath($Target)}else{[IO.Path]::GetFullPath((Join-Path $petProject $Target))}

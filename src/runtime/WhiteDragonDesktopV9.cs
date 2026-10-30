@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,9 +16,24 @@ using System.Web.Script.Serialization;
 using Forms=System.Windows.Forms;
 
 [assembly: AssemblyTitle("GPT白龙娘互动桌宠")]
-#if STYLE_V10
-[assembly: AssemblyVersion("10.9.0.0")]
-[assembly: AssemblyFileVersion("10.9.0.0")]
+#if CLICK_BOUNCE
+[assembly: AssemblyVersion("10.15.1.0")]
+[assembly: AssemblyFileVersion("10.15.1.0")]
+#elif SMALL_TALK
+[assembly: AssemblyVersion("10.13.0.0")]
+[assembly: AssemblyFileVersion("10.13.0.0")]
+#elif FOCUS_COMPANION
+[assembly: AssemblyVersion("10.12.1.0")]
+[assembly: AssemblyFileVersion("10.12.1.0")]
+#elif DAILY_ROUTINE
+[assembly: AssemblyVersion("10.11.0.0")]
+[assembly: AssemblyFileVersion("10.11.0.0")]
+#elif WINDOW_PERCH
+[assembly: AssemblyVersion("10.10.2.0")]
+[assembly: AssemblyFileVersion("10.10.2.0")]
+#elif STYLE_V10
+[assembly: AssemblyVersion("10.9.3.0")]
+[assembly: AssemblyFileVersion("10.9.3.0")]
 #else
 [assembly: AssemblyVersion("9.2.0.0")]
 [assembly: AssemblyFileVersion("9.2.0.0")]
@@ -70,7 +85,20 @@ public sealed partial class PetWindow:Window {
 #if STYLE_V10
     readonly ClientLink clientLink=new ClientLink();
     readonly ThinkingIndicator thinkingIndicator=new ThinkingIndicator();
+    readonly ReadingBookProps readingBookProps=new ReadingBookProps();
     PetStatus lastCodexState;
+    string connectionAuditPath,connectionAuditKey;long connectionAuditDeadline;bool connectionAuditFinished;
+    readonly List<Dictionary<string,object>> connectionAuditEvents=new List<Dictionary<string,object>>();
+    public void BeginConnectionAudit(){string folder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"联动验收");Directory.CreateDirectory(folder);connectionAuditPath=Path.Combine(folder,"desktop-events.json");connectionAuditDeadline=clock.ElapsedMilliseconds+180000;}
+    void CaptureConnectionAudit(){
+        if(connectionAuditPath==null||connectionAuditFinished)return;
+        bool finished=clock.ElapsedMilliseconds>=connectionAuditDeadline;
+        string key=bridgeStatus+"|"+bridgeSource+"|"+behavior.Animation+"|"+behavior.PlaybackId;
+        if(key==connectionAuditKey&&!finished)return;connectionAuditKey=key;
+        if(connectionAuditEvents.Count<128)connectionAuditEvents.Add(new Dictionary<string,object>{{"utc",DateTime.UtcNow.ToString("o")},{"status",bridgeStatus},{"source",bridgeSource},{"row",behavior.Animation},{"playback_id",behavior.PlaybackId},{"single",behavior.SingleAction}});
+        connectionAuditFinished=finished;
+        File.WriteAllText(connectionAuditPath,new JavaScriptSerializer().Serialize(new Dictionary<string,object>{{"version","10.15.1"},{"finished",finished},{"scope","Actual running desktop phase and playback identifiers; no chat content or tool inputs"},{"events",connectionAuditEvents}}));
+    }
 #endif
     long bridgeNextRead,bridgeSnooze;
     int smoothChanges;
@@ -81,6 +109,9 @@ public sealed partial class PetWindow:Window {
     long wingFoldDue,lastWingFoldCheck;
     long hiddenStarted;
     readonly ScaleTransform stretch=new ScaleTransform();
+#if CLICK_BOUNCE
+    readonly ClickBounce clickBounce=new ClickBounce();
+#endif
     readonly RotateTransform swing=new RotateTransform();
     readonly DispatcherTimer timer=new DispatcherTimer(DispatcherPriority.Render);
     readonly Stopwatch clock=Stopwatch.StartNew();
@@ -118,10 +149,29 @@ public sealed partial class PetWindow:Window {
         if(!File.Exists(settingsPath))preferences.Size=350;
         preferences.Follow=false;
         behavior=new PetBehavior(Forms.SystemInformation.DoubleClickTime,smooth.MediaDurations);
-        Title="小龙娘 · 持续思考与阅读 v10.9";
+#if WINDOW_PERCH
+#if SMALL_TALK
+#if CLICK_BOUNCE
+        Title="小龙娘 · 全量合并 v10.15.1";
+#else
+        Title="小龙娘 · 轻语气泡 v10.13";
+#endif
+#elif FOCUS_COMPANION
+        Title="小龙娘 · 提示衔接修正 v10.12.1";
+#elif DAILY_ROUTINE
+        Title="小龙娘 · 自己安排小日常 v10.11";
+#else
+        Title="小龙娘 · 菜单移入修正 v10.10.2";
+#endif
+#else
+        Title="小龙娘 · 开合书流畅修正 v10.9.3";
+#endif
 #else
         behavior=new PetBehavior(Forms.SystemInformation.DoubleClickTime);
         Title="小龙娘 · 动作流畅修正版 v9.2";
+#endif
+#if DAILY_ROUTINE
+        preferences.DailyRhythm=Math.Max(0,Math.Min(2,preferences.DailyRhythm));dailyRoutine.Configure(!testing&&preferences.DailyRoutine,preferences.DailyRhythm,DateTime.Now.Hour);
 #endif
         behavior.AutoNap=preferences.AutoNap;WindowStyle=WindowStyle.None;AllowsTransparency=true;Background=Brushes.Transparent;
         ResizeMode=ResizeMode.NoResize;ShowInTaskbar=false;ShowActivated=false;Focusable=false;Topmost=!test&&preferences.Topmost;
@@ -130,14 +180,29 @@ public sealed partial class PetWindow:Window {
         RenderOptions.SetBitmapScalingMode(image,BitmapScalingMode.HighQuality);
         RenderOptions.SetBitmapScalingMode(transitionImage,BitmapScalingMode.HighQuality);
         image.ToolTip="轻戳脸颊躲开 · 单击身体跳跃 · 双击挥手 · 长按头部摸摸头 · 拎起甩出后扇翼缓降";
+#if CLICK_BOUNCE
+        image.ToolTip="连续点三下 · 鼓脸护头、duangduang回弹\n单击身体跳跃 · 双击挥手 · 长按头部摸头 · 拖动拎起";
+#endif
         var area=SystemParameters.WorkArea;Left=(double.IsNaN(preferences.Left)?area.Right-bodyWidth-24:preferences.Left)-RigPadding;
         Top=(double.IsNaN(preferences.Top)?area.Bottom-bodyWidth*FlightAsset.Foot/CW:preferences.Top)-RigPadding;
+#if WINDOW_PERCH
+        if(double.IsNaN(preferences.Left))preferences.Left=Left+RigPadding;
+        if(double.IsNaN(preferences.Top))preferences.Top=Top+RigPadding;
+#endif
 #if !STYLE_V10
         LoadSheet("WhiteDragon.Gaze",CW*8,CH*2,9,2,8);
 #endif
         LoadPosters();
 #if STYLE_V10
+        canvas.Children.Insert(0,readingBookProps.Layer);readingBookProps.Place(bodyWidth,RigPadding);
+        canvas.Children.Add(readingBookProps.FrontLayer);
         canvas.Children.Add(thinkingIndicator.Layer);thinkingIndicator.Place(bodyWidth,RigPadding);
+#endif
+#if FOCUS_COMPANION
+        InitializeFocus();
+#endif
+#if SMALL_TALK
+        InitializeSmallTalk();
 #endif
         smooth.Warm(0);BuildMenu();RenderFrame();
         SourceInitialized+=delegate {
@@ -154,9 +219,15 @@ public sealed partial class PetWindow:Window {
 #endif
         };
         MouseLeftButtonDown+=Press;MouseMove+=Move;MouseLeftButtonUp+=Release;
+#if WINDOW_PERCH
+        PreviewMouseRightButtonDown+=delegate{RememberPerchForeground();};
+#endif
         LostMouseCapture+=delegate{if(behavior.Pressed){behavior.CancelPointer(clock.ElapsedMilliseconds);motion.Reset();ClampPosition();RenderFrame();}};
         Closed+=delegate {
             closed=true;timer.Stop();CompositionTarget.Rendering-=Composition;smooth.Dispose();Save();
+#if FOCUS_COMPANION
+            DisposeFocus();
+#endif
 #if STYLE_V10
             clientLink.Dispose();
 #endif
@@ -186,7 +257,20 @@ public sealed partial class PetWindow:Window {
             foreach(var kv in data.posters){int row=int.Parse(kv.Key),i=kv.Value;var frame=new CroppedBitmap(bgra,new Int32Rect(i%8*CW,i/8*CH,CW,CH));frame.Freeze();for(int col=0;col<PetBehavior.Counts[row];col++)frames[row,col]=frame;}
         }
     }
-    void PrefetchNext(){int next=shownRow==25?19:shownRow==19&&readingLibrary.RemainingMilliseconds<6000?25:shownRow==16?15:shownRow==15?17:shownRow==17?0:(behavior.SingleAction||shownRow==14)?0:-1;if(next>=0)smooth.Warm(next);}
+#if STYLE_V10
+    const double LandingFoldStart=550;
+#else
+    const double LandingFoldStart=0;
+#endif
+    void PrefetchNext(){int next=shownRow==25?19:shownRow==19&&readingLibrary.RemainingMilliseconds<6000?25:shownRow==16?15:shownRow==15?17:shownRow==17?0:(behavior.SingleAction||shownRow==14)?0:-1;
+        if(next==17){
+            bool landing=flight.Active||pendingWingFold;
+#if WINDOW_PERCH
+            landing=landing||(windowPerch.Attached&&perchArrival==1);
+#endif
+            smooth.WarmFrom(17,landing?LandingFoldStart:0);
+        }else if(next>=0)smooth.Warm(next);
+    }
     IntPtr WindowHook(IntPtr h,int message,IntPtr w,IntPtr l,ref bool handled) {
         if(message==0x0021){handled=true;return new IntPtr(3);} // MA_NOACTIVATE
         if(message==0x0084&&!behavior.Pressed) {
@@ -207,29 +291,60 @@ public sealed partial class PetWindow:Window {
     void RenderFrame() {
         long start=Stopwatch.GetTimestamp();
         try{RenderFrameCore();}finally{
+#if SMALL_TALK
+            UpdateSmallTalkBadge(clock.ElapsedMilliseconds);
+#endif
+#if FOCUS_COMPANION
+            UpdateFocusBadge(clock.ElapsedMilliseconds);
+#endif
 #if STYLE_V10
             thinkingIndicator.Update(clock.ElapsedMilliseconds,shownRow==18&&!behavior.Pressed&&!flight.Active,behavior.Paused||behavior.MenuOpen||behavior.Hidden);
+            readingBookProps.Update(clock.ElapsedMilliseconds,(shownRow==18||shownRow==19||shownRow==25)&&!behavior.Pressed&&!flight.Active,behavior.Paused||behavior.MenuOpen||behavior.Hidden);
 #endif
             maxRenderMilliseconds=Math.Max(maxRenderMilliseconds,(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency);
         }
     }
+    public readonly double[] RenderPhaseMaxMilliseconds=new double[9];
+    void RenderMark(int phase,ref long stamp){long now=Stopwatch.GetTimestamp();RenderPhaseMaxMilliseconds[phase]=Math.Max(RenderPhaseMaxMilliseconds[phase],(now-stamp)*1000.0/Stopwatch.Frequency);stamp=now;}
     void RenderFrameCore() {
+        long phaseStamp=Stopwatch.GetTimestamp();
         if(motion.Active&&!behavior.Dragged)motion.Reset();
         long now=clock.ElapsedMilliseconds;
-        double elapsed=lastVisualRender==0?0:Math.Max(0,now-lastVisualRender);lastVisualRender=now;
-        if((behavior.Paused||behavior.MenuOpen||behavior.Hidden)&&image.Source!=null)return;
-        ApplyRig();
+        double elapsed=lastVisualRender==0?0:Math.Max(0,now-lastVisualRender);
+#if CLICK_BOUNCE
+        if(behavior.Hidden)clickBounce.Reset();else if(behavior.Paused||behavior.MenuOpen)clickBounce.Step(now,true);
+#endif
+        if((behavior.Paused||behavior.MenuOpen||behavior.Hidden)&&image.Source!=null){lastVisualRender=now;return;}
+        ApplyRig();RenderMark(0,ref phaseStamp);
         int targetRow=behavior.Row;
         bool changed=shownRow!=targetRow||presentedPlaybackId!=behavior.PlaybackId;
+        // Composition and the fallback timer can fire almost together. A
+        // second full-body warp in that interval cannot reach another display
+        // frame and delays the next one. Keep the accumulated animation time;
+        // action changes and pointer transforms still take effect immediately.
+        if(transitioning&&!changed&&elapsed<12)return;
+        lastVisualRender=now;
         bool streamed=targetRow!=9&&targetRow!=10;
-        double time=changed||transitionHoldsTimeline?0:behavior.VisualTime(now);
+        double time=changed||transitionHoldsTimeline?behavior.PlaybackStartMilliseconds:behavior.VisualTime(now);
+#if WINDOW_PERCH
+        bool perchedPose=windowPerch.Attached&&targetRow==22;
+        if(perchedPose)time=windowPerch.PoseMilliseconds;
+#endif
         BitmapSource selected=null;
         int previousSample=presentedSampleIndex;
         if(streamed){
-            smooth.WarmFrom(targetRow,time);
+#if WINDOW_PERCH
+            if(perchedPose)smooth.WarmDirected(targetRow,time,windowPerch.Direction);
+            else if(behavior.RecoveringPose)smooth.WarmRecovery(targetRow,time);else smooth.WarmFrom(targetRow,time);
+#else
+            if(behavior.RecoveringPose)smooth.WarmRecovery(targetRow,time);else smooth.WarmFrom(targetRow,time);
+#endif
             bool exact=smooth.TryCopyExact(targetRow,time,livePixels);
-            bool ready=exact&&(!changed||smooth.IsReady(targetRow,0,2));
-            transitionMediaReady=ready;
+            bool ready=exact&&(!changed||smooth.IsReady(targetRow,time,2));
+#if WINDOW_PERCH
+            if(perchedPose)ready=exact;
+#endif
+            RenderMark(1,ref phaseStamp);transitionMediaReady=ready;
             if(!ready){
                 if(!behavior.MediaWaiting){behavior.SetMediaWaiting(true,now);mediaWaits++;}
                 // A cold action never replaces a moving pose with a poster. The
@@ -238,15 +353,21 @@ public sealed partial class PetWindow:Window {
                 return;
             }
             if(!transitionHoldsTimeline||changed)behavior.SetMediaWaiting(false,now);
-            if(changed){behavior.StartVisualPlayback(now);time=0;}
+            if(changed){behavior.StartVisualPlayback(now);
+#if WINDOW_PERCH
+                if(!perchedPose)time=behavior.PlaybackStartMilliseconds;
+#else
+                time=behavior.PlaybackStartMilliseconds;
+#endif
+            }
         }else{
             behavior.SetMediaWaiting(false,now);selected=frames[targetRow,behavior.Column];
         }
-        if(changed){
+        RenderMark(2,ref phaseStamp);if(changed){
             // These two wing boundaries already share the same pose. Other
             // changes include a short, single-surface transition, including
             // folding back to idle, whose source drawing differs visibly.
-            bool matched=(shownRow==16&&targetRow==15)||(shownRow==15&&targetRow==17);
+            bool matched=(shownRow==16&&targetRow==15)||(shownRow==15&&targetRow==17&&behavior.PlaybackStartMilliseconds==0);
 #if STYLE_V10
             // At a natural action end, the final video frames already follow
             // the moving idle sequence. Preserve that phase instead of fading
@@ -262,8 +383,16 @@ public sealed partial class PetWindow:Window {
 #if STYLE_V10
                 if(transitionFlows.Enabled){
                     FlowField sourceFlow=interrupted?frameTransition.SnapshotFlow():transitionFlows.Get(shownRow,Math.Max(0,previousSample));
-                    FlowField targetFlow=transitionFlows.Get(targetRow,0);
+                    FlowField targetFlow=transitionFlows.Get(targetRow,smooth.GetSampleIndex(targetRow,time));
+#if WINDOW_PERCH
+                    if(perchedPose)targetFlow=transitionFlows.Get(targetRow,smooth.GetSampleIndex(targetRow,time));
+#endif
                     int duration=shownRow==14||targetRow==14?280:targetRow==12||shownRow==12?260:240;
+                    if(targetRow==17&&behavior.PlaybackStartMilliseconds>0)duration=140;
+                    if(behavior.RecoveringPose&&shownRow==targetRow)duration=70;
+                    // Book entry/exit needs a short moving bridge; a long
+                    // snapshot of the previous body pose reads as a freeze.
+                    if((shownRow==19&&(targetRow==0||targetRow==18))||(targetRow==19&&(shownRow==0||shownRow==18)))duration=180;
                     transitioning=frameTransition.BeginAligned((BitmapSource)image.Source,livePixels,sourceFlow,targetFlow,duration);
                     // Decoding waits still freeze time. A visual bridge itself
                     // follows the playing incoming clip without pausing it.
@@ -276,12 +405,12 @@ public sealed partial class PetWindow:Window {
             shownRow=targetRow;presentedPlaybackId=behavior.PlaybackId;committedTransitions++;
             elapsed=0;
         }
-        shownColumn=behavior.Column;presentedVisualTime=time;
+        RenderMark(3,ref phaseStamp);shownColumn=behavior.Column;presentedVisualTime=time;
         presentedSampleIndex=streamed?smooth.GetSampleIndex(targetRow,time):behavior.Column;
 #if STYLE_V10
         if(transitioning&&streamed&&!changed&&previousSample!=presentedSampleIndex)frameTransition.FollowIncoming(livePixels,transitionFlows.Get(targetRow,presentedSampleIndex));
 #endif
-        PrefetchNext();
+        RenderMark(4,ref phaseStamp);PrefetchNext();RenderMark(5,ref phaseStamp);
         int previousWeight=frameTransition.Weight;
 #if STYLE_V10
         int previousBlink=idleBlink.Schedule.Frame;
@@ -293,11 +422,11 @@ public sealed partial class PetWindow:Window {
         bool eyeChanged=false;
 #endif
         if(!changed&&!transitioning&&previousSample==presentedSampleIndex&&streamed&&!eyeChanged)return;
-        BitmapSource display=selected;
+        RenderMark(6,ref phaseStamp);BitmapSource display=selected;
         if(transitioning)transitionElapsed+=elapsed;
         if(streamed)display=frameTransition.PresentPixels(livePixels,transitionElapsed,transitioning);
         else if(transitioning)display=frameTransition.Render(selected,transitionElapsed);
-        if(transitioning&&frameTransition.Weight>=256){
+        RenderMark(7,ref phaseStamp);if(transitioning&&frameTransition.Weight>=256){
             transitioning=false;
             if(transitionHoldsTimeline){transitionHoldsTimeline=false;behavior.SetMediaWaiting(false,now);behavior.StartVisualPlayback(now);}
         }
@@ -305,12 +434,13 @@ public sealed partial class PetWindow:Window {
         if(changed||previousSample!=presentedSampleIndex||lastDecodedImage!=selected){lastDecodedImage=selected;smoothChanges++;}
         if(streamed||image.Source!=display||previousWeight!=frameTransition.Weight){
             image.Source=display;frameChanges++;
-            if(testing&&renderSubmissionTrace.Count<30000)renderSubmissionTrace.Add(new long[]{clock.ElapsedMilliseconds,shownRow,presentedPlaybackId,presentedSampleIndex,GC.CollectionCount(0),GC.CollectionCount(2)});
+            RenderMark(8,ref phaseStamp);if(testing&&renderSubmissionTrace.Count<30000)renderSubmissionTrace.Add(new long[]{clock.ElapsedMilliseconds,shownRow,presentedPlaybackId,presentedSampleIndex,GC.CollectionCount(0),GC.CollectionCount(2)});
         }
     }
     void SetBodySize(){Width=bodyWidth+2*RigPadding;Height=BodyHeight+2*RigPadding;image.Width=transitionImage.Width=bodyWidth;image.Height=transitionImage.Height=BodyHeight;Canvas.SetLeft(image,RigPadding);Canvas.SetTop(image,RigPadding);Canvas.SetLeft(transitionImage,RigPadding);Canvas.SetTop(transitionImage,RigPadding);
 #if STYLE_V10
         thinkingIndicator.Place(bodyWidth,RigPadding);
+        readingBookProps.Place(bodyWidth,RigPadding);
 #endif
     }
     void ApplyRig(){bool flying=behavior.Animation>=15&&behavior.Animation<=17;
@@ -318,6 +448,11 @@ public sealed partial class PetWindow:Window {
         if(motion.Active&&behavior.Dragged)UpdateGrabPosition(clock.ElapsedMilliseconds);
         image.RenderTransformOrigin=transitionImage.RenderTransformOrigin=(motion.Active||flight.Active||(!flying&&motion.Landing))?activeGrip:new Point(.5,FlightAsset.Foot/CH);
         stretch.ScaleX=stretch.ScaleY=1;
+#if CLICK_BOUNCE
+        bool bounceAllowed=!motion.Active&&!flight.Active&&!pendingWingFold&&!windowPerch.Attached&&!behavior.Hidden&&!flying&&behavior.Animation!=14;
+        if(!bounceAllowed)clickBounce.Reset();else clickBounce.Step(clock.ElapsedMilliseconds,behavior.Paused||behavior.MenuOpen);
+        stretch.ScaleX=clickBounce.ScaleX;stretch.ScaleY=clickBounce.ScaleY;
+#endif
 #else
         image.RenderTransformOrigin=transitionImage.RenderTransformOrigin=motion.Active?new Point(GrabMotion.PivotX,GrabMotion.PivotY):new Point(.5,FlightAsset.Foot/CH);stretch.ScaleX=flying?FlightAsset.Scale:1;stretch.ScaleY=flying?FlightAsset.Scale:motion.Stretch;
 #endif
@@ -331,22 +466,50 @@ public sealed partial class PetWindow:Window {
         if(now>=bridgeNextRead){
             bridgeNextRead=now+500;DateTime utc=DateTime.UtcNow;var state=preferences.LinkCodex?PetBridge.Read(bridgeFolder,utc):null;
 #if STYLE_V10
+            if(preferences.LinkCodex)state=PetBridge.RetainEventLease(state,lastCodexState,utc);
             lastCodexState=state;
-            if(preferences.LinkCodex&&!testing){string original=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","GPTWhiteDragon","联动状态");lastCodexState=PetBridge.Best(lastCodexState,PetBridge.Read(original,utc,"codex"));}
-            state=PetBridge.Best(lastCodexState,preferences.LinkChatGPT?clientLink.State(utc):null);
+            PetStatus legacyState=null;
+            if(preferences.LinkCodex&&!testing){string installed=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","GPTWhiteDragon");lastCodexState=PetBridge.ResolveSources(lastCodexState,PetBridge.Read(Path.Combine(installed,"联动状态-持续动作"),utc,"codex"),null);legacyState=PetBridge.Read(Path.Combine(installed,"联动状态"),utc,"codex");}
+            lastCodexState=PetBridge.ResolveSources(lastCodexState,legacyState,null);
+            state=PetBridge.ResolveSources(lastCodexState,null,preferences.LinkChatGPT?clientLink.State(utc):null);
 #endif
             bridgeStatus=state==null?null:state.status;bridgeSource=state==null?null:state.source;
         }
-        bool canLeaveBook=automaticBookChange&&behavior.Animation==25&&bridgeStatus!=bridgeApplied&&!behavior.Pressed&&!behavior.Paused&&!behavior.MenuOpen&&!behavior.Hidden;
-        if(!AssistantStates.MayUpdate(behavior,flight.Active||pendingWingFold,bridgeSnooze,now)&&!AssistantStates.MayReplaceCompletion(behavior,flight.Active||pendingWingFold,bridgeApplied,bridgeStatus,bridgeSnooze,now)&&!canLeaveBook)return;
+#if DAILY_ROUTINE
+        bool dailyPreempted=PreemptDailyForAssistant(now);
+#else
+        bool dailyPreempted=false;
+#endif
+#if WINDOW_PERCH
+        if(windowPerch.Attached||perchActionAfterLanding>=0)return;
+#endif
+#if FOCUS_COMPANION
+        bool focusPreempted=PreemptFocusForAssistant(now);
+        if(!AssistantBusy&&FocusOwnsPose){bridgeApplied=bridgeStatus;return;}
+#else
+        bool focusPreempted=false;
+#endif
+        bool companionPreempted=dailyPreempted||focusPreempted;
         int desiredRow=AssistantStates.Row(bridgeStatus);
+        bool sameContinuousPose=bridgeStatus!=bridgeApplied&&!AssistantStates.Once(bridgeStatus)&&desiredRow!=0&&desiredRow==AssistantStates.Row(bridgeApplied)&&((behavior.Animation==desiredRow&&!behavior.SingleAction)||(desiredRow==19&&automaticBookChange&&behavior.Animation==25));
+        if(sameContinuousPose){bridgeApplied=bridgeStatus;
+#if STYLE_V10
+            image.ToolTip="小龙娘 · "+SourceName(bridgeSource)+" · "+StateName(bridgeStatus)+"\n慢拖拎起 · 甩出缓降 · 右键打开菜单";
+#endif
+            return;
+        }
+        bool canLeaveBook=automaticBookChange&&behavior.Animation==25&&desiredRow!=AssistantStates.Row(bridgeApplied)&&!behavior.Pressed&&!behavior.Paused&&!behavior.MenuOpen&&!behavior.Hidden;
+#if TABLET_PHASES
+        if(RouteTabletPhases(now,canLeaveBook))return;
+#endif
+        if(!companionPreempted&&!AssistantStates.MayUpdate(behavior,flight.Active||pendingWingFold,bridgeSnooze,now)&&!AssistantStates.MayReplaceCompletion(behavior,flight.Active||pendingWingFold,bridgeApplied,bridgeStatus,bridgeSnooze,now)&&!canLeaveBook)return;
         bool resumeAfterInteraction=behavior.Animation==0&&desiredRow!=0&&!AssistantStates.Once(bridgeStatus);
-        if(bridgeStatus==bridgeApplied&&!resumeAfterInteraction)return;
+        if(bridgeStatus==bridgeApplied&&!resumeAfterInteraction&&!companionPreempted)return;
         if(canLeaveBook){automaticBookChange=false;readingLibrary.Finish(false);}
         if(bridgeStatus==null||bridgeStatus=="idle"||bridgeStatus=="ready"||bridgeStatus=="error")readingLibrary.TaskEnded();
         bridgeApplied=bridgeStatus;
         int row=AssistantStates.Row(bridgeStatus);
-        behavior.Play(row,AssistantStates.Once(bridgeStatus),now);
+        behavior.PlayAfterExit(row,AssistantStates.Once(bridgeStatus),now);
 #if STYLE_V10
         image.ToolTip="小龙娘 · "+(bridgeStatus==null?"安静陪伴":SourceName(bridgeSource)+" · "+StateName(bridgeStatus))+"\n慢拖拎起 · 甩出缓降 · 右键打开菜单";
 #endif
@@ -355,9 +518,24 @@ public sealed partial class PetWindow:Window {
     Point PointerDip(POINT p){Point q=CursorInCell(p);return new Point(q.X*bodyWidth/CW,q.Y*bodyWidth/CW);}
     void Tick() {
         long start=Stopwatch.GetTimestamp();
-        try{TickCore();}finally{maxTickMilliseconds=Math.Max(maxTickMilliseconds,(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency);}
+        try{TickCore();}finally{maxTickMilliseconds=Math.Max(maxTickMilliseconds,(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency);
+#if STYLE_V10
+            try{CaptureConnectionAudit();}catch{}
+#endif
+        }
     }
     void TickCore() {
+#if STYLE_V10
+        // A 16.67 ms DispatcherTimer can round to two coarse Windows ticks.
+        // Use an 8 ms request only during flight/folding; media time and the
+        // normal render throttle still decide which source frame is shown.
+        bool activeWings=flight.Active||pendingWingFold||behavior.Animation==17;
+#if WINDOW_PERCH
+        activeWings=activeWings||(windowPerch.Attached&&perchArrival>0);
+#endif
+        double requestedInterval=activeWings?8:1000.0/60;
+        if(Math.Abs(timer.Interval.TotalMilliseconds-requestedInterval)>.01)timer.Interval=TimeSpan.FromMilliseconds(requestedInterval);
+#endif
         long stamp=clock.ElapsedMilliseconds;if(stamp-lastLogicTick<8){RenderFrame();return;}lastLogicTick=stamp;
         if(closed)return;POINT p;CursorPollWorked=GetCursorPos(out p);long now=clock.ElapsedMilliseconds;double? angle=null;
         if(CursorPollWorked) {
@@ -369,18 +547,50 @@ public sealed partial class PetWindow:Window {
         }
         if(CursorPollWorked&&(motion.Active||motion.Landing)){Point q=CursorInCell(p);motion.Step(now,q.X,q.Y);}
         if(CursorPollWorked&&behavior.Dragged){grabPointer=p;Point q=PointerDip(p);gesture.Add(now,q.X,q.Y);}
+#if WINDOW_PERCH
+        UpdateWindowPerch(now);
+#endif
         AdvanceFlight(now);
         UpdateBridge(now);
         bool linked=bridgeStatus!=null&&bridgeStatus!="idle";
+#if FOCUS_COMPANION
+        linked=linked||focusSession.Active&&!focusSession.IsBreak&&!focusSession.Paused;
+#endif
+#if WINDOW_PERCH
+        linked=linked||windowPerch.Attached;
+#endif
         behavior.Tick(now,angle,preferences.Follow&&!linked,CursorPollWorked&&!linked&&now-lastPointerMotion>=180000);
-        FoldAfterDownstroke(now);UpdateReadingLibrary(now);RenderFrame();
+#if TABLET_PHASES
+        if(tabletPhases.BoundaryNeedsRouting(behavior))UpdateBridge(now);
+#endif
+#if WINDOW_PERCH
+        AdvancePerchArrival(now);
+#endif
+        FoldAfterDownstroke(now);
+#if WINDOW_PERCH
+        CompletePerchDeparture();
+#endif
+#if FOCUS_COMPANION
+        UpdateFocusCompanion(now);
+#endif
+#if DAILY_ROUTINE
+        UpdateDailyRoutine(now);
+#endif
+#if SMALL_TALK
+        UpdateSmallTalk(now);
+#endif
+        UpdateReadingLibrary(now);RenderFrame();
     }
     void UpdateReadingLibrary(long now){
 #if STYLE_V10
         if(readingLibrary.InExchange&&behavior.Animation!=25){readingLibrary.Finish(behavior.NaturalReadingTransition&&behavior.Animation==19);automaticBookChange=false;}
         bool frozen=behavior.Paused||behavior.MenuOpen||behavior.Hidden||behavior.Pressed||behavior.MediaWaiting||transitioning||flight.Active||pendingWingFold;
         readingLibrary.Update(now,behavior.Animation==19&&!behavior.SingleAction,frozen);
-        if(readingLibrary.Due&&!frozen&&behavior.Animation==19&&behavior.VisualTime(now)<100){readingLibrary.Begin();automaticBookChange=true;behavior.Play(25,true,now);smooth.Warm(25);}
+        bool allowBookExchange=true;
+#if FOCUS_COMPANION
+        allowBookExchange=!FocusOwnsPose||!focusStopping;
+#endif
+        if(readingLibrary.Due&&!frozen&&allowBookExchange&&behavior.Animation==19&&behavior.VisualTime(now)<100){readingLibrary.Begin();automaticBookChange=true;behavior.Play(25,true,now);smooth.Warm(25);}
 #endif
     }
     void Press(object sender,MouseButtonEventArgs e) {
@@ -394,7 +604,26 @@ public sealed partial class PetWindow:Window {
         if(behavior.Sleeping&&Painted(e.GetPosition(this))){behavior.Wake(now);RenderFrame();}
         if(!behavior.Pressed)return;POINT p;if(!GetCursorPos(out p))return;MovePointer(p,now);
     }
-    void BeginPointer(Point local,int count,POINT p,long now){bool wasFlying=flight.Active;CancelFlight(now);motion.Reset();pressPoint=grabPointer=p;pressLeft=Left+RigPadding;pressTop=Top+RigPadding;pressLocal=local;Point q=PointerDip(p);gesture.Begin(now,q.X,q.Y);behavior.BeginPress(local.Y<BodyHeight*.52,wasFlying?1:count,now);
+    void BeginPointer(Point local,int count,POINT p,long now){
+#if FOCUS_COMPANION
+        CancelFocusOwnership(now,false);
+#endif
+#if DAILY_ROUTINE
+        CancelDailyRoutine(now,false,-1);
+#endif
+#if WINDOW_PERCH
+        bool wasPerched=windowPerch.Attached;
+#else
+        bool wasPerched=false;
+#endif
+        bool wasFlying=flight.Active;if(!wasPerched)CancelFlight(now);motion.Reset();pressPoint=grabPointer=p;pressLeft=Left+RigPadding;pressTop=Top+RigPadding;pressLocal=local;Point q=PointerDip(p);gesture.Begin(now,q.X,q.Y);behavior.BeginPress(!wasPerched&&local.Y<BodyHeight*.52,wasFlying||wasPerched?1:count,now);
+#if CLICK_BOUNCE
+        if(!wasFlying&&!wasPerched&&!behavior.Paused&&!behavior.MenuOpen&&!behavior.Hidden&&!behavior.Sleeping)clickBounce.Punch(now);else clickBounce.Reset();
+        if(wasFlying||wasPerched)behavior.ResetTapRun();
+#endif
+#if WINDOW_PERCH
+        perchActionAfterLanding=-1;
+#endif
 #if STYLE_V10
         automaticBookChange=false;
         behavior.SetClickAction(PetBehavior.TapAction(local.X/bodyWidth*CW,local.Y/BodyHeight*CH));
@@ -407,6 +636,10 @@ public sealed partial class PetWindow:Window {
         if(!behavior.Pressed)return;var source=PresentationSource.FromVisual(this);if(source==null)return;
         Vector delta=source.CompositionTarget.TransformFromDevice.Transform(new Vector(p.X-pressPoint.X,p.Y-pressPoint.Y));
         if(!behavior.Dragged&&Math.Abs(delta.X)<SystemParameters.MinimumHorizontalDragDistance&&Math.Abs(delta.Y)<SystemParameters.MinimumVerticalDragDistance)return;
+#if WINDOW_PERCH
+        windowPerch.Detach();
+        perchActionAfterLanding=-1;
+#endif
         grabPointer=p;Point q=CursorInCell(p);
         Point sample=PointerDip(p);gesture.Add(now,sample.X,sample.Y);
         if(!behavior.Dragged){motion.Begin(now,q.X,q.Y);pickupStarted=now;}
@@ -435,10 +668,16 @@ public sealed partial class PetWindow:Window {
         EndPointer(clock.ElapsedMilliseconds);if(IsMouseCaptured)ReleaseMouseCapture();e.Handled=true;
     }
     void EndPointer(long now){
+#if WINDOW_PERCH
+        if(windowPerch.Attached&&!behavior.Dragged){behavior.CancelPointer(now);behavior.Play(22,false,now);RenderFrame();return;}
+#endif
         bool moved=behavior.Dragged;double releasedAngle=motion.Angle;Vector velocity=new Vector();bool thrown=moved&&gesture.TryRelease(now,out velocity);
         behavior.EndPress(now);
         bridgeSnooze=now+1000;bridgeApplied=null;
         if(moved){
+#if WINDOW_PERCH
+            if(!thrown&&TryPerchNearPointer(now)){RenderFrame();return;}
+#endif
 #if STYLE_V10
             motion.End(now);
 #else
@@ -447,27 +686,46 @@ public sealed partial class PetWindow:Window {
             if(thrown){motion.Reset();releaseKind="throw";Rect area=WorkAreaFor(Forms.Screen.FromPoint(new System.Drawing.Point(grabPointer.X,grabPointer.Y)));flight.Begin(now,new Point(Left+RigPadding,Top+RigPadding),velocity,area,bodyWidth,bodyWidth*FlightAsset.Foot/CW,releasedAngle);behavior.Play(16,true,now);AdvanceFlight(now);}else{releaseKind="fixed";ClampPosition();Save();}}
         RenderFrame();
     }
-    void CancelFlight(long now){pendingWingFold=false;if(flight.Active){flight.Cancel();behavior.Play(0,false,now);}}
+    void CancelFlight(long now){
+#if WINDOW_PERCH
+        windowPerch.Detach();
+        perchActionAfterLanding=-1;
+#endif
+        pendingWingFold=false;if(flight.Active){flight.Cancel();behavior.Play(0,false,now);}}
     void FoldAfterDownstroke(long now){
         if(!pendingWingFold)return;
         if(behavior.Paused||behavior.MenuOpen||behavior.MediaWaiting)wingFoldDue+=Math.Max(0,now-lastWingFoldCheck);
         lastWingFoldCheck=now;
         if(behavior.Paused||behavior.MenuOpen||behavior.MediaWaiting||now<wingFoldDue)return;
-        pendingWingFold=false;behavior.Play(17,true,now);bridgeSnooze=now+650;bridgeApplied=null;
+        pendingWingFold=false;StartLandingFold(now);bridgeSnooze=now+650;bridgeApplied=null;
     }
+    void StartLandingFold(long now){behavior.PlayFrom(17,true,now,LandingFoldStart);smooth.WarmFrom(17,LandingFoldStart);}
     void AdvanceFlight(long now){
         if(!flight.Active)return;flight.SetPaused(behavior.Paused||behavior.MenuOpen||(behavior.MediaWaiting&&!(transitionHoldsTimeline&&transitionMediaReady)),now);flight.Step(now);Left=flight.X-RigPadding;Top=flight.Y-RigPadding;
         if(!flight.Active){
             pendingWingFold=true;lastWingFoldCheck=now;
 #if STYLE_V10
-            double delay=behavior.TotalDuration(15)-behavior.VisualTime(now);
+            double delay=0;
 #else
             double delay=250-behavior.VisualTime(now);if(delay< -25)delay+=660;
 #endif
             wingFoldDue=now+(long)Math.Max(0,delay);motion.End(now);Save();
         }
     }
-    void Choose(int row){CancelFlight(clock.ElapsedMilliseconds);automaticBookChange=false;if(readingLibrary.InExchange)readingLibrary.Finish(false);if(row==25)readingLibrary.Begin();behavior.Select(row,clock.ElapsedMilliseconds);bridgeSnooze=clock.ElapsedMilliseconds+5000;bridgeApplied=null;RenderFrame();}
+    void Choose(int row){
+#if CLICK_BOUNCE
+        clickBounce.Reset();
+#endif
+#if FOCUS_COMPANION
+        CancelFocusOwnership(clock.ElapsedMilliseconds,false);
+#endif
+#if DAILY_ROUTINE
+        CancelDailyRoutine(clock.ElapsedMilliseconds,false,row);
+#endif
+#if WINDOW_PERCH
+        if(DeferPerchedAction(row))return;
+#endif
+        CancelFlight(clock.ElapsedMilliseconds);automaticBookChange=false;if(readingLibrary.InExchange)readingLibrary.Finish(false);if(row==25)readingLibrary.Begin();behavior.SelectAfterExit(row,clock.ElapsedMilliseconds);bridgeSnooze=clock.ElapsedMilliseconds+5000;bridgeApplied=null;RenderFrame();}
     void BuildMenu() {
 #if STYLE_V10
         BuildStyledMenu();
@@ -517,8 +775,17 @@ public sealed partial class PetWindow:Window {
         tray.DoubleClick+=delegate{Dispatcher.BeginInvoke(new Action(delegate{SetHidden(false);if(!flight.Active)ResetPosition();}));};tray.Visible=visible;
     }
     void SetHidden(bool hidden) {
+#if DAILY_ROUTINE
+        dailyRoutine.ResetClock();
+#endif
         long now=clock.ElapsedMilliseconds;
         if(hidden==behavior.Hidden)return;
+#if SMALL_TALK
+        if(hidden)SilenceSmallTalk(now);
+#endif
+#if FOCUS_COMPANION
+        AdvanceFocusClock(now);
+#endif
         if(flight.Active)flight.SetPaused(hidden||behavior.Paused||behavior.MenuOpen||(behavior.MediaWaiting&&!(transitionHoldsTimeline&&transitionMediaReady)),now);
         behavior.CancelPointer(now);motion.Reset();if(IsMouseCaptured)ReleaseMouseCapture();
         if(hidden){hiddenStarted=now;lastVisualRender=now;behavior.SuspendHidden(now);timer.Stop();Hide();}
@@ -526,6 +793,9 @@ public sealed partial class PetWindow:Window {
             if(pendingWingFold){wingFoldDue+=Math.Max(0,now-hiddenStarted);lastWingFoldCheck=now;}
             lastVisualRender=now;Show();ClampPosition();behavior.ResumeAfterHidden(now);timer.Start();RenderFrame();
         }
+#if FOCUS_COMPANION
+        AdvanceFocusClock(now);UpdateFocusBadge(now);
+#endif
     }
     Rect CurrentWorkArea() {
         return WorkAreaFor(Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle));
@@ -534,14 +804,31 @@ public sealed partial class PetWindow:Window {
         var source=PresentationSource.FromVisual(this);
         if(source==null)return SystemParameters.WorkArea;
         var screen=selected.WorkingArea;
+#if WINDOW_PERCH
+        // Use one stable screen transform. Adding the requested fractional
+        // Window.Top to PointFromScreen can accumulate HWND rounding error.
+        var matrix=source.CompositionTarget.TransformFromDevice;
+        return new Rect(matrix.Transform(new Point(screen.Left,screen.Top)),matrix.Transform(new Point(screen.Right,screen.Bottom)));
+#else
         Point start=PointFromScreen(new Point(screen.Left,screen.Top));Point end=PointFromScreen(new Point(screen.Right,screen.Bottom));
         return new Rect(Left+start.X,Top+start.Y,end.X-start.X,end.Y-start.Y);
+#endif
     }
     void ClampPosition(){Point p=PetBehavior.Clamp(new Point(Left+RigPadding,Top+RigPadding),new Size(bodyWidth,bodyWidth*FlightAsset.Foot/CW),CurrentWorkArea());Left=p.X-RigPadding;Top=p.Y-RigPadding;}
     void ResetPosition(){CancelFlight(clock.ElapsedMilliseconds);behavior.CancelPointer(clock.ElapsedMilliseconds);motion.Reset();Rect area=CurrentWorkArea();Left=area.Right-bodyWidth-24-RigPadding;Top=area.Bottom-bodyWidth*FlightAsset.Foot/CW-RigPadding;ClampPosition();Save();RenderFrame();}
-    void ResizePet(double width){CancelFlight(clock.ElapsedMilliseconds);behavior.CancelPointer(clock.ElapsedMilliseconds);motion.Reset();double center=Left+RigPadding+bodyWidth/2,bottom=Top+RigPadding+BodyHeight;bodyWidth=width;SetBodySize();Left=center-bodyWidth/2-RigPadding;Top=bottom-BodyHeight-RigPadding;ClampPosition();Save();RenderFrame();}
+    void ResizePet(double width){
+#if WINDOW_PERCH
+        if(ResizeWindowPerch(width))return;
+#endif
+        CancelFlight(clock.ElapsedMilliseconds);behavior.CancelPointer(clock.ElapsedMilliseconds);motion.Reset();double center=Left+RigPadding+bodyWidth/2,bottom=Top+RigPadding+BodyHeight;bodyWidth=width;SetBodySize();Left=center-bodyWidth/2-RigPadding;Top=bottom-BodyHeight-RigPadding;ClampPosition();Save();RenderFrame();}
     void Save() {
-        if(testing||!initialized)return;preferences.Left=Left+RigPadding;preferences.Top=Top+RigPadding;preferences.Size=bodyWidth;
+        if(testing||!initialized)return;
+#if WINDOW_PERCH
+        if(!windowPerch.Attached){preferences.Left=Left+RigPadding;preferences.Top=Top+RigPadding;}
+#else
+        preferences.Left=Left+RigPadding;preferences.Top=Top+RigPadding;
+#endif
+        preferences.Size=bodyWidth;
         try{PreferenceStore.Save(settingsPath,preferences);}catch{if(tray!=null)tray.Text="GPT白龙娘 · 设置未保存，请解压到可写文件夹";}
     }
     void DisplaysChanged(object sender,EventArgs e){if(!closed)Dispatcher.BeginInvoke(new Action(delegate{if(!closed){CancelFlight(clock.ElapsedMilliseconds);ClampPosition();Save();}}));}
@@ -683,7 +970,7 @@ public sealed partial class PetWindow:Window {
         string dir=Path.Combine(folder,"bridge-fixture");DateTime now=DateTime.UtcNow;
         PetBridge.Write(dir,"session-a","working","test",now);PetBridge.Write(dir,"session-b","needs_input","test",now);
         Check(PetBridge.Read(dir,now).status=="needs_input","multi-session priority");
-        Check(PetBridge.Read(dir,now.AddMinutes(31))==null,"stale bridge status remains active");
+        Check(PetBridge.Read(dir,now.AddHours(2))==null,"stale bridge status remains active");
         File.WriteAllText(Path.Combine(dir,"session-malformed.json"),"{bad json");Check(PetBridge.Read(dir,now).status=="needs_input","malformed bridge file breaks reader");
         Check(smooth.CachedRows<=2,"unbounded decoded motion cache");
         bridgeFolder=Path.Combine(folder,"native-bridge-fixture");preferences.LinkCodex=true;bridgeSnooze=bridgeNextRead=0;bridgeApplied=null;
@@ -720,6 +1007,9 @@ public static class Program {
         try {
             if(!test){bool first;single=new Mutex(true,"Local\\GPTWhiteDragonPet_6ad72d1bd8848191b510eb705b3b2805",out first);if(!first){MessageBox.Show("白龙娘已经在运行。请先从托盘退出旧版，再打开新版。","GPT白龙娘");return 0;}}
             var app=new Application{ShutdownMode=ShutdownMode.OnMainWindowClose};var window=new PetWindow(test);app.MainWindow=window;
+#if STYLE_V10
+            if(!test&&Array.IndexOf(args,"--connection-audit")>=0)window.BeginConnectionAudit();
+#endif
             if(test){bool started=false;window.Opacity=0;window.Topmost=false;window.Loaded+=delegate {
                 if(started)return;started=true;
                 Directory.CreateDirectory(args[1]);File.WriteAllText(Path.Combine(args[1],"test-started.marker"),DateTime.UtcNow.ToString("o"));

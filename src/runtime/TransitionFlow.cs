@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
@@ -27,7 +27,13 @@ public sealed class TransitionFlowArchive {
   using(var s=Assembly.GetExecutingAssembly().GetManifestResourceStream("WhiteDragon.Flow"+row))using(var r=new BinaryReader(s)){
    if(r.ReadUInt32()!=0x31464457||r.ReadInt32()!=81||r.ReadInt32()!=46||r.ReadInt32()!=8)throw new InvalidDataException("Invalid transition flow grid");int count=r.ReadInt32();if(key<0||key>=count)throw new InvalidDataException("Invalid transition key");
    s.Position=20+key*12;r.ReadInt32();int offset=r.ReadInt32(),length=r.ReadInt32();s.Position=offset;byte[] compressed=r.ReadBytes(length);f=new FlowField();
-   using(var input=new MemoryStream(compressed))using(var gzip=new GZipStream(input,CompressionMode.Decompress))using(var values=new BinaryReader(gzip))for(int i=0;i<f.Data.Length;i++)f.Data[i]=values.ReadInt16()/16f;
+   // Inflate the grid in one block. Reading each 16-bit component through
+   // GZipStream performs almost 15,000 tiny reads on the UI thread per key.
+   var raw=new byte[f.Data.Length*2];using(var input=new MemoryStream(compressed))using(var gzip=new GZipStream(input,CompressionMode.Decompress)){
+    int used=0,n;while(used<raw.Length&&(n=gzip.Read(raw,used,raw.Length-used))>0)used+=n;
+    if(used!=raw.Length||gzip.ReadByte()!=-1)throw new InvalidDataException("Invalid transition flow length");
+   }
+   for(int i=0;i<f.Data.Length;i++)f.Data[i]=(short)(raw[i*2]|raw[i*2+1]<<8)/16f;
   }
   cache[id]=f;order.Enqueue(id);while(order.Count>12)cache.Remove(order.Dequeue());DecodeCount++;return f;
  }

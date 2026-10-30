@@ -1,75 +1,129 @@
 {
   "ok": true,
-  "version": "10.9",
-  "verified_date": "2026-10-25",
-  "timezone": "Asia/Shanghai",
-  "clean_build": true,
-  "runtime_binary_sha256": "7e9afd4d3e99a6a3d740cc4eb85e8d41e8cb22ba9f86bb4d92c6ffa938e4d0ea",
+  "version": "10.15.1",
+  "verified_date": "2026-10-30",
+  "binary_sha256": "53efc725406a349b51d61b868fda3097148683e26aeff81a84d83c6e50cb96e9",
   "rebuild": {
     "ok": true,
-    "release_sha256": "7e9afd4d3e99a6a3d740cc4eb85e8d41e8cb22ba9f86bb4d92c6ffa938e4d0ea",
-    "rebuild_sha256": "a73cc81ddbfe68656cd39ee6822b36550e341468f1e17426775386ea2ca74b32",
+    "release_sha256": "53efc725406a349b51d61b868fda3097148683e26aeff81a84d83c6e50cb96e9",
+    "rebuild_sha256": "8e8116836170385f1ba4eed4bd74883a774797ea9dea729b7a13462018e50f83",
     "identical_method_bodies": true,
-    "method_body_count": 423,
+    "method_body_count": 691,
     "identical_resources": true,
-    "resource_count": 55,
+    "resource_count": 65,
     "scope": "Method IL and embedded assets; PE timestamps, MVID, icon and compiler provenance are outside this equality check"
   },
-  "native_suites": [
+  "native_core_suites": [
     {
-      "suite": "Moving",
+      "ok": true,
       "report": "moving-transition-review.json",
-      "ok": true
+      "suite": "Moving"
     },
     {
-      "suite": "Library",
+      "ok": true,
       "report": "reading-review.json",
-      "ok": true
+      "suite": "Library"
     },
     {
-      "suite": "Switch",
+      "ok": true,
       "report": "smooth-switch-review.json",
-      "ok": true
+      "suite": "Switch"
     },
     {
-      "suite": "Menu",
+      "ok": true,
       "report": "menu-link-review.json",
-      "ok": true
+      "suite": "Menu"
     },
     {
-      "suite": "Indicator",
+      "ok": true,
       "report": "indicator-review.json",
-      "ok": true
+      "suite": "Indicator"
     },
     {
-      "suite": "Transition",
+      "ok": true,
       "report": "transition-review.json",
-      "ok": true
+      "suite": "Transition"
     },
     {
-      "suite": "Blink",
+      "ok": true,
       "report": "blink-review.json",
+      "suite": "Blink"
+    },
+    {
+      "ok": true,
+      "report": "flight-review.json",
+      "suite": "Flight"
+    }
+  ],
+  "strict_switch_stages": 113,
+  "feature_suites": [
+    {
+      "report": "phase-review.json",
+      "suite": "TabletLogic",
       "ok": true
     },
     {
-      "suite": "Flight",
-      "report": "flight-review.json",
+      "report": "logic-review.json",
+      "suite": "RelayLogic",
+      "ok": true
+    },
+    {
+      "report": "bridge-lease-review.json",
+      "suite": "BridgeLease",
+      "ok": true
+    },
+    {
+      "report": "native-tablet-phases.json",
+      "suite": "TabletNative",
+      "ok": true
+    },
+    {
+      "report": "focus-companion-review.json",
+      "suite": "Focus",
+      "ok": true
+    },
+    {
+      "report": "small-talk-review.json",
+      "suite": "SmallTalk",
       "ok": true
     }
   ],
-  "native_switch_stages": 113,
-  "bridge_fixture_cases": 11,
-  "native_scope": "Isolated hidden WPF windows; no saved preferences, real pointer gestures, paid generation or installed app changes",
-  "bridge_scope": "Bounded synthetic payloads through actual executable; no real lifecycle callback claimed",
-  "runtime_zip_crc": "passed",
-  "source_text_scan": "passed",
-  "compiler_warning_codes": [
-    "CS0649",
-    "CS0169"
-  ],
-  "limitations": [
-    "PE timestamps, MVID, icon and compiler provenance are outside method/resource equality",
-    "Hidden WPF and synthetic bridge tests do not certify physical monitor frame rate or live native hooks",
-    "No code license selected; character-media redistribution authorization not confirmed"
-  ]
+  "historical_parent_version": "10.15.0",
+  "historical_parent_full_regression": "8 core and 19 feature suites; separate parent binary evidence, not borrowed as this version results",
+  "preserved_media": 65,
+  "new_generation_points": 0,
+  "visual_user_acceptance": "Gaze, fingertip contact and fine AI details retain disclosed limitations",
+  "native_command_hooks_verified": false,
+  "local_session_event_adapter": true,
+  "private_configuration_removed": true,
+  "installed_application_modified_by_publication": false,
+  "offline_preview": {
+    "ok": true,
+    "scope": "Local offline HTML, three processed clips decode and advance in actual Chromium; no monitor FPS claim",
+    "videos": [
+      {
+        "file": "WD10-29.webm",
+        "width": 640,
+        "height": 360,
+        "current_time": 0.1542,
+        "frames": 15
+      },
+      {
+        "file": "WD10-28.webm",
+        "width": 640,
+        "height": 360,
+        "current_time": 0.155,
+        "frames": 14
+      },
+      {
+        "file": "WD10-30.webm",
+        "width": 640,
+        "height": 360,
+        "current_time": 0.1742,
+        "frames": 4
+      }
+    ],
+    "image_loaded": true,
+    "remote_resources": []
+  }
 }

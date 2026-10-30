@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
@@ -6,7 +6,8 @@ namespace WhiteDragon {
 public static class PetBridgeCommand {
     public static string HookStatus(string evt,string tool){
         tool=(tool??"").ToLowerInvariant();bool question=tool.EndsWith("request_user_input")||tool.EndsWith("request_user_input_async")||tool.EndsWith("askuserquestion");
-        switch(evt){case "UserPromptSubmit":return "thinking";case "PreToolUse":return question?"needs_input":"working";case "PostToolUse":return question&&tool.EndsWith("_async")?"needs_input":"thinking";case "PermissionRequest":return "needs_input";case "Stop":return "ready";case "Interrupt":case "SessionEnd":return "idle";default:return null;}
+        bool command=tool=="bash"||tool=="exec_command"||tool.EndsWith(".exec_command");
+        switch(evt){case "UserPromptSubmit":case "PreCompact":case "PostCompact":return "thinking";case "PreToolUse":return question?"needs_input":command?"executing":"working";case "PostToolUse":return question?(tool.EndsWith("_async")?"needs_input":"thinking"):null;case "PermissionRequest":return "needs_input";case "Stop":return "ready";case "Interrupt":case "SessionEnd":return "idle";default:return null;}
     }
     public static int Main(string[] args){
         bool hook=Array.IndexOf(args,"--hook")>=0;
